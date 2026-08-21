@@ -1,0 +1,22 @@
+-- ============================================================
+-- Platform admin flag — a real security fix, not a nice-to-have.
+--
+-- The existing 'admin' role is TENANT-scoped: it just means
+-- "the first/top user at their own company." Every tenant's admin
+-- is a completely separate person with no relationship to any
+-- other tenant. But capability_taxonomy and
+-- capability_taxonomy_keywords are SHARED, GLOBAL reference data —
+-- every tenant's classifier reads from the same tables. Gating
+-- "add a new capability category" behind tenant 'admin' would let
+-- ANY customer's admin edit data that affects EVERY OTHER customer.
+--
+-- This introduces a genuinely separate, platform-operator-only
+-- flag. No signup path can set it — the only way to become a
+-- platform admin is a manual database update, run by whoever
+-- actually operates this platform, not by any tenant themselves.
+--
+-- Apply the same way as previous migrations:
+--   docker compose exec -T db psql -U postgres -d doi < db/migrations/007_platform_admin.sql
+-- ============================================================
+
+alter table users add column if not exists is_platform_admin boolean not null default false;
