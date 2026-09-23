@@ -2350,6 +2350,62 @@ a real `PATCH`/`GET` round trip AND a direct `psql` read of the raw
 column showing genuine ciphertext (`gAAAAABqs6PG...`, not
 `27AAAPL1234C1Z5`).
 
+### Encryption-key rotation tooling for MFA_ENCRYPTION_KEY / PII_ENCRYPTION_KEY (2026-09-23)
+
+`api/scripts/rotate_encryption_key.py` — a CLI, run inside the api
+container, that re-encrypts every `users.mfa_secret` or every
+tenant's `gst_number`/`pan_number`/`tan_number`/`iec_license` with a
+NEW Fernet key while the OLD key is still supplied on the command
+line (never read as "the current key" from the live environment, so
+there's no ambiguity about which is old vs. new).
+
+Same discipline as this session's own standing bulk-delete precaution
+(preview scope, fresh backup before any bulk op on real data) applied
+to a bulk WRITE instead of a bulk delete: dry-run by default (decrypts every row with
+`--old-key`, re-encrypts in memory, reports the count — writes
+nothing until `--execute`), and `--execute` refuses to run unless
+`backup_jobs` shows a succeeded backup in the last hour (skippable
+only with `--skip-backup-check`, for disposable stacks). Fully
+transactional: every row is decrypted+re-encrypted in memory first;
+a single bad row (wrong `--old-key`) aborts before anything is
+written, never a partial rotation split across two keys.
+
+Deliberately does NOT handle `BACKUP_ENCRYPTION_KEY` — existing R2
+backups were encrypted with whatever key was live the day they were
+taken, and rotating that key for real would mean download-decrypt-
+reencrypt-reupload of every historical dump. The documented manual
+process instead: new key becomes `BACKUP_ENCRYPTION_KEY` for backups
+going forward, the old value is kept as `BACKUP_ENCRYPTION_KEY_PREVIOUS`
+for as long as any dump encrypted under it might still need restoring.
+
+**Live-verified end to end on the isolated test stack** (never
+against real tenant data — a key rotation is exactly the kind of bulk
+write that stays on a disposable stack until proven safe): enrolled a
+real MFA secret via `/auth/mfa/setup` + a real TOTP code, set real
+GST/PAN/TAN/IEC values via `/company/profile`, dry-ran both fields
+(reported the true affected row count, wrote nothing), confirmed
+`--execute` without `--skip-backup-check` correctly refuses with no
+recent backup, `--execute --skip-backup-check` correctly rewrote
+every row, confirmed the app **fails** to decrypt immediately after
+(`/auth/login/mfa` → "MFA verification is temporarily unavailable",
+`/company/profile` → 500 "PII_ENCRYPTION_KEY may have changed") while
+still holding the OLD key — proving the rotation genuinely changed
+stored bytes, not a no-op — then updated the container's key and
+rebuilt, and confirmed both the original TOTP secret (a real login
+completed with a fresh code from the same secret) and the original
+GST/PAN/TAN/IEC strings round-tripped byte-for-byte through the new
+key. The isolated test stack was then fully reset (`down -v`, fresh
+migrate + stamp) since its pre-existing pytest-debris rows were left
+holding the rotation's test key, not its real throwaway one — the
+same reset documented as an option in docker-compose.test.yml's own
+header. No automated pytest for the script's internals: this
+project's own test-suite convention (see tests/conftest.py's own
+header) is real-HTTP integration tests, not unit tests importing app
+internals directly, and the script explicitly runs inside the
+container against a DB already holding real encrypted rows — the same
+reasoning tests/test_password_reset.py already documents for why its
+own accept-path is verified manually instead of via pytest.
+
 ### Email verification on signup (2026-09-23, migration 048)
 
 Closes a real gap: signup only ever checked that an email string
