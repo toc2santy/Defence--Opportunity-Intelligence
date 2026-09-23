@@ -2350,6 +2350,59 @@ a real `PATCH`/`GET` round trip AND a direct `psql` read of the raw
 column showing genuine ciphertext (`gAAAAABqs6PG...`, not
 `27AAAPL1234C1Z5`).
 
+### A real, confirmed stored-XSS gap across the frontend, found on request (2026-09-23)
+
+Asked for directly as the next security item, and confirmed rather
+than assumed: this single-file frontend had **no HTML-escaping helper
+anywhere in it**, and interpolated user/tenant-controlled strings
+straight into template-literal HTML throughout. Fixed by adding one
+`escapeHtml(value)` function (handles both text content and
+double/single-quoted attribute contexts — `&`/`<`/`>`/`"`/`'` all
+escaped) and applying it at every confirmed real injection point, in
+priority order:
+
+- **`showPublicCard`** — the worst one: a tenant's own `company_name`/
+  `tagline`/`country` rendered unescaped on the PUBLIC, no-login share
+  card (`GET /public/companies/{token}`, meant to be sent out via
+  WhatsApp/email to anyone). A malicious tenant could have set their
+  own company name to a script/`onerror` payload and had it execute
+  in ANY visitor's browser — this app's own origin, where the JWT
+  lives in `localStorage` — just by sending their own legitimate
+  share link.
+- **`loadCompanyView`** (`GET /companies/{tenant_id}/profile`, the
+  cross-tenant "vetting" view any registered user can open on any
+  other company) — even richer: name/tagline/website/country/phone/
+  linkedin_url/GST/PAN/TAN/IEC/custom fields, all unescaped.
+- **User Management's table** (`loadUserManagement`) — the most
+  severe by WHO it targets: `full_name`/`tenant_name`, both set at
+  signup by an entirely untrusted, unauthenticated-at-that-point
+  visitor, rendered unescaped in front of a PLATFORM ADMIN — the
+  highest-privilege account on the platform. A malicious signup
+  (`company_name: "<img src=x onerror=...>"`) would have executed in
+  that admin's own browser the moment they viewed the account list.
+- **The per-user activity log viewer** (`showUserActivityLog`) — same
+  admin-facing risk via a different path: `before_state`/
+  `after_state` JSON values (e.g. a `company_profile.updated` entry's
+  new `name`) rendered unescaped in the same platform-admin view.
+- Lower-severity but fixed for consistency: the owner's own Company
+  Profile identity/compliance/custom-fields forms, My Products list +
+  product detail (`<h2>`/certifications), Report Intel's product-name
+  header, Team Workload's `display_name`, the owner-assignment
+  dropdown's team-member names, the topbar's own company-name badge,
+  and the Contact page's "Signed in as" line.
+
+**Not claimed as a 100% exhaustive audit** of every interpolation in
+a 6000+ line file — what WAS done is fixing every confirmed injection
+point that crosses a real trust/privilege boundary (public-no-auth →
+anyone, one tenant → a different tenant, any signup → a platform
+admin), which is where a stored-XSS finding actually matters. Lower-
+traffic, same-user/self-only render sites were fixed opportunistically
+where found, not hunted for exhaustively. Verified with real payload
+test cases (`<script>`, an attribute-breakout `">`) confirmed
+neutralized, and real legitimate names (`O'Brien Defence Ltd`,
+`Smith & Co`) confirmed to still render correctly (HTML-entity-
+escaped, which browsers display as the original character).
+
 ### Backup & DR — Phase 4 (2026-09, migration 044) — automated restore drills + failure alerting
 
 Built after Phase 3 (standby replica/geographic failover) was
