@@ -10,6 +10,7 @@ actually calls.
 """
 
 import re
+import unicodedata
 from typing import TypedDict
 
 # Score thresholds — deliberately conservative. A single generic
@@ -19,6 +20,28 @@ from typing import TypedDict
 HIGH_CONFIDENCE_THRESHOLD = 6
 MEDIUM_CONFIDENCE_THRESHOLD = 3
 MINIMUM_SCORE_TO_SUGGEST = 2  # below this, don't bother suggesting at all
+
+
+def fold(text: str) -> str:
+    """
+    Lower-cases and strips accents, so "NAVEGACIÓN" and "navegacion"
+    are the same word to the scorer.
+
+    WHY THIS IS NEEDED AND WHY IT IS SAFE: with Colombia (SECOP II)
+    ingested, programme titles now arrive in Spanish — and the feed
+    itself is inconsistent about accents, writing the same force as
+    both "EJERCITO" and "EJÉRCITO". Without folding, a Spanish keyword
+    would have to be stored twice to catch both spellings, and the
+    wrong half of the pair would silently never match. Folding also
+    helps the EU TED rows already in the database, whose titles are in
+    24 languages.
+
+    It cannot change the result for an unaccented input: folding is
+    the identity function on plain ASCII, so every English keyword and
+    every English product description scores exactly as before.
+    """
+    decomposed = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in decomposed if not unicodedata.combining(c)).lower()
 
 
 class Candidate(TypedDict):
@@ -38,14 +61,16 @@ def score_text(input_text: str, taxonomy_rows) -> list[Candidate]:
     normally loaded from capability_taxonomy_keywords, but passed
     in directly here so this function has zero I/O of its own.
     """
-    normalized = input_text.lower()
+    normalized = fold(input_text)
     scores: dict[str, Candidate] = {}
 
     for capability_id, code, label, sector, keyword, weight in taxonomy_rows:
         # Word-boundary match so "ai" doesn't match inside "maintain",
         # and multi-word phrases like "electronic warfare" match as
-        # a unit rather than any substring appearance.
-        pattern = r"\b" + re.escape(keyword.lower()) + r"\b"
+        # a unit rather than any substring appearance. Both sides are
+        # folded, so an accented keyword matches an unaccented title
+        # and vice versa.
+        pattern = r"\b" + re.escape(fold(keyword)) + r"\b"
         if re.search(pattern, normalized):
             key = str(capability_id)
             if key not in scores:

@@ -18,7 +18,7 @@ def test_match_programmes_response_includes_eligibility_fields(client, auth_head
         returning id
         """,
         ("Test Fixture: Restricted UAV Programme", "United States", "rfp_issued", source_id,
-         "334511", fixture_ref, "SBA", "Total Small Business Set-Aside"),
+         "336411", fixture_ref, "SBA", "Total Small Business Set-Aside"),
     )
     programme_id = str(db_cursor.fetchone()["id"])
 
@@ -84,7 +84,7 @@ def test_unrestricted_programme_has_null_eligibility_fields(client, auth_headers
         values (%s, %s, %s, %s, %s, %s)
         returning id
         """,
-        ("Test Fixture: Unrestricted UAV Programme", "United States", "rfp_issued", source_id, "334511", fixture_ref),
+        ("Test Fixture: Unrestricted UAV Programme", "United States", "rfp_issued", source_id, "336411", fixture_ref),
     )
     programme_id = str(db_cursor.fetchone()["id"])
 

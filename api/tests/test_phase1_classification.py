@@ -151,7 +151,7 @@ def test_capabilities_are_tenant_isolated(client, auth_headers):
     email_b = f"tenant-cap-b-{uuid.uuid4().hex[:10]}@example.com"
     signup_b = client.post(
         "/auth/signup",
-        json={"company_name": "Rival Corp", "email": email_b, "password": "another-real-password-1"},
+        json={"company_name": "Rival Corp", "full_name": "Test Admin", "email": email_b, "password": "another-real-password-1"},
     )
     token_b = signup_b.json()["access_token"]
     headers_b = {"Authorization": f"Bearer {token_b}"}

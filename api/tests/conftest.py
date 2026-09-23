@@ -1,18 +1,34 @@
 """
 Shared fixtures for the smoke test suite.
 
-These tests hit the REAL running stack over HTTP (localhost:8000) —
-they are not unit tests against the code in isolation, and they
-do not mock the database. That's deliberate: the whole point of
-this suite is to catch the class of bug we just spent a dozen
-rounds finding by hand (missing DB grants, a jsonb serialization
-bug, a SQLAlchemy `::` cast parsing quirk) — none of which a
-mocked-DB unit test would have caught, because all of them only
-showed up when real SQL hit a real Postgres instance.
+These tests hit a REAL running stack over HTTP — they are not unit
+tests against the code in isolation, and they do not mock the
+database. That's deliberate: the whole point of this suite is to
+catch the class of bug we just spent a dozen rounds finding by hand
+(missing DB grants, a jsonb serialization bug, a SQLAlchemy `::` cast
+parsing quirk) — none of which a mocked-DB unit test would have
+caught, because all of them only showed up when real SQL hit a real
+Postgres instance.
 
-Prerequisite: `docker compose up` must already be running.
+Defaults to the ISOLATED test stack (docker-compose.test.yml, ports
+8001/5433), not the real dev stack on 8000/5432 — a real, expensive
+lesson from this session's own history: every prior run of this suite
+signed up real throwaway tenants into the SAME database the dev
+frontend/API were actually using, and two separate cleanups (2026-09)
+had to delete 8155 and then 1383 of them by hand before anyone
+noticed how large it had grown. Override with TEST_API_BASE_URL /
+TEST_DB_DSN if you genuinely need to point this suite elsewhere.
+
+Prerequisite:
+  docker compose -f docker-compose.test.yml up -d --build
+  docker compose -f docker-compose.test.yml exec api-test alembic stamp head
+  (only after applying db/migrations/*.sql by hand once — see that
+  file's own header for why `alembic upgrade head` alone doesn't work
+  on a genuinely fresh database in this project, a real, separate gap
+  found while building this isolated stack, not specific to it.)
 """
 
+import os
 import uuid
 
 import httpx
@@ -20,7 +36,7 @@ import psycopg2
 import psycopg2.extras
 import pytest
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = os.environ.get("TEST_API_BASE_URL", "http://localhost:8001")
 
 # Direct DB access, for test SETUP only (seeding controlled fixture
 # data) — never used to assert on results, since the whole point of
@@ -28,7 +44,7 @@ BASE_URL = "http://localhost:8000"
 # would experience it. Connects as postgres (bypasses RLS), which is
 # fine here: programmes/organizations/evidence are shared reference
 # tables with no RLS by design, so there's nothing to bypass.
-DB_DSN = "postgresql://postgres:postgres@localhost:5432/doi"
+DB_DSN = os.environ.get("TEST_DB_DSN", "postgresql://postgres:postgres@localhost:5433/doi")
 
 
 def unique_email() -> str:
@@ -64,7 +80,7 @@ def new_tenant(client):
 
     resp = client.post(
         "/auth/signup",
-        json={"company_name": company_name, "email": email, "password": password},
+        json={"company_name": company_name, "full_name": "Test Admin", "email": email, "password": password},
     )
     assert resp.status_code == 201, f"signup failed: {resp.status_code} {resp.text}"
     token = resp.json()["access_token"]

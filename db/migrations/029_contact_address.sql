@@ -1,0 +1,28 @@
+-- ============================================================
+-- Adds contact_address to programmes — the address half of the
+-- procurement contact this platform already stores.
+--
+-- WHY IT BELONGS WITH contact_name/contact_email/contact_phone, NOT
+-- IN A NEW TABLE: same reasoning as migration 017 in full. A postal
+-- address published on a specific tender is what makes an
+-- opportunity read as a genuine, contactable lead rather than a
+-- listing — and it is bound to that one tender for the same reason
+-- the personal contact fields are: governments publish it so a
+-- supplier can write to that specific procuring office about that
+-- specific requirement, not so a directory of every office's address
+-- can be built and queried independently. No index, for the same
+-- reason migration 017 has none: fast lookup-by-address is exactly
+-- the directory use case this stays scoped away from.
+--
+-- WHAT GOES IN IT: a single formatted line — street, locality,
+-- region, postal code, country — built by each normalizer from
+-- whatever structured address fields that source actually publishes.
+-- Left blank rather than guessed at wherever a source publishes no
+-- address at all (see app/*_normalize.py per source for what is and
+-- is not available — it genuinely differs source to source).
+--
+-- Apply the same way as previous migrations:
+--   docker compose exec -T db psql -U postgres -d doi < db/migrations/029_contact_address.sql
+-- ============================================================
+
+alter table programmes add column if not exists contact_address text;

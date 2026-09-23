@@ -19,6 +19,8 @@ from typing import Awaitable, Callable, Optional
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.org_name_format import normalize_org_name
+
 
 class IngestionConfigError(Exception):
     """Raised when a source can't run because required config (e.g. an API key) is missing."""
@@ -69,12 +71,140 @@ async def get_rotation_index(session: AsyncSession, rotation_key: str) -> int:
     return row.rotation_index if row else 0
 
 
+async def _get_or_create_organization(
+    session: AsyncSession, name: Optional[str], org_type: str, country: Optional[str]
+) -> Optional[str]:
+    """
+    The one real upsert both public functions below delegate to.
+
+    WHY THIS REPLACED A CHECK-THEN-INSERT: every one of this
+    project's ingestion modules used to run its own private
+    "SELECT — if found, return; else INSERT", and nothing in the
+    schema stopped two such sequences from racing each other —
+    confirmed live (migration 035): a Ukrainian military unit name
+    was inserted twice, byte-for-byte identical, because two
+    concurrent calls both found "not found" before either INSERT had
+    committed. `organizations` now has a real `unique(name,
+    org_type)` constraint (same migration), so this upserts against
+    it with `ON CONFLICT ... DO UPDATE` — the standard trick to get a
+    real `id` back from an upsert (`DO NOTHING` alone returns no row
+    on conflict) — which makes the race structurally impossible
+    rather than merely unlikely.
+    """
+    if not name:
+        return None
+    normalized = normalize_org_name(name)
+    if not normalized:
+        return None
+    result = await session.execute(
+        text("""
+            insert into organizations (name, org_type, country, classification)
+            values (:name, :org_type, :country, 'public')
+            on conflict (name, org_type) do update set name = excluded.name
+            returning id
+        """),
+        {"name": normalized, "org_type": org_type, "country": country},
+    )
+    return str(result.scalar_one())
+
+
+async def get_or_create_oem_organization(
+    session: AsyncSession, name: Optional[str], country: Optional[str]
+) -> Optional[str]:
+    """
+    OEM Intelligence — shared by every source that captures award
+    winners (TED, UK Find a Tender, Colombia, ProZorro, CanadaBuys),
+    unlike each source's own per-file buyer-creation helper, which
+    stays source-specific because buyer country handling genuinely
+    differs per source (e.g. UK FT hardcodes 'United Kingdom', TED
+    gets it from the notice). A winner is looked up by name only,
+    regardless of which source reported it — the same real company
+    should not get a duplicate organizations row just because two
+    different sources both reported it winning something.
+    """
+    return await _get_or_create_organization(session, name, "oem", country)
+
+
+async def get_or_create_government_buyer(
+    session: AsyncSession, name: Optional[str], country: Optional[str]
+) -> Optional[str]:
+    """
+    The buyer-side equivalent of get_or_create_oem_organization —
+    added 2026-09 to replace 8 nearly-identical private
+    `_get_or_create_organization` functions, one per ingestion module,
+    that each independently had the same check-then-insert race (see
+    _get_or_create_organization's docstring). Every ingestion module
+    now calls this instead, passing whatever country literal/variable
+    its own source resolves — that per-source difference is real and
+    stays with each caller, only the upsert logic itself is shared.
+    """
+    return await _get_or_create_organization(session, name, "government_body", country)
+
+
+async def record_contract_award(
+    session: AsyncSession,
+    programme_id: str,
+    winner_organization_id: str,
+    source_id: str,
+    value_amount: Optional[float] = None,
+    value_currency: Optional[str] = None,
+) -> str:
+    """
+    Idempotent on (programme_id, winner_organization_id) — re-running
+    an ingestion that reports the same award again must not create a
+    duplicate row, matching the idempotency guarantee the programmes
+    table itself has via (source_id, external_ref).
+
+    value_amount/value_currency are optional and default to None —
+    most callers don't have one to give (see db/migrations/040 for
+    which sources genuinely publish an award-level total and which
+    don't); passing neither leaves the columns exactly as null as
+    before this parameter existed.
+    """
+    result = await session.execute(
+        text("""
+            insert into contract_awards (programme_id, winner_organization_id, source_id, value_amount, value_currency)
+            values (:programme_id, :winner_organization_id, :source_id, :value_amount, :value_currency)
+            on conflict (programme_id, winner_organization_id) do update
+                set source_id = excluded.source_id,
+                    value_amount = coalesce(excluded.value_amount, contract_awards.value_amount),
+                    value_currency = coalesce(excluded.value_currency, contract_awards.value_currency)
+            returning id
+        """),
+        {
+            "programme_id": programme_id,
+            "winner_organization_id": winner_organization_id,
+            "source_id": source_id,
+            "value_amount": value_amount,
+            "value_currency": value_currency,
+        },
+    )
+    return str(result.scalar_one())
+
+
 async def advance_rotation_index(session: AsyncSession, rotation_key: str, total_groups: int):
+    """
+    A real UPSERT, not a bare UPDATE — found to matter live (2026-09):
+    CPPP's rotation key was seeded by its own migration ahead of time,
+    but SAM.gov's per-NAICS-code offset keys are dynamic (one per
+    NAICS code ever queried, not a fixed known set), so nothing pre-
+    seeds them. A bare UPDATE against a source_name with no existing
+    row silently affects zero rows — get_rotation_index's own default
+    of 0 makes reading look fine, so this failure mode is invisible
+    until you specifically check whether the index ever actually
+    moved, which is exactly how it was found: two successive SAM.gov
+    runs for the same NAICS code both reported offset 0. ON CONFLICT
+    means every rotation key self-seeds on first use, the same
+    structural fix already applied to organizations (migration 035)
+    for the equivalent check-then-write race.
+    """
     await session.execute(
         text("""
-            update ingestion_rotation_state
-            set rotation_index = (rotation_index + 1) % :total_groups, updated_at = now()
-            where source_name = :key
+            insert into ingestion_rotation_state (source_name, rotation_index)
+            values (:key, 1 % :total_groups)
+            on conflict (source_name) do update
+                set rotation_index = (ingestion_rotation_state.rotation_index + 1) % :total_groups,
+                    updated_at = now()
         """),
         {"total_groups": total_groups, "key": rotation_key},
     )

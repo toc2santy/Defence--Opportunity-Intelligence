@@ -28,7 +28,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ted_eu_normalize import normalize_batch, DEFENSE_CPV_QUERIES
-from app.ingestion_common import IngestionConfigError
+from app.ingestion_common import (
+    IngestionConfigError, get_or_create_oem_organization, get_or_create_government_buyer, record_contract_award,
+)
 
 TED_API_URL = "https://api.ted.europa.eu/v3/notices/search"
 TED_SOURCE_NAME = "EU TED (Tenders Electronic Daily)"
@@ -38,7 +40,24 @@ TED_SOURCE_NAME = "EU TED (Tenders Electronic Daily)"
 TED_FIELDS = [
     "publication-number", "notice-title", "buyer-name",
     "buyer-country", "classification-cpv", "publication-date",
-    "notice-type", "deadline-receipt-tenders", "deadline-receipt-request",
+    "notice-type", "deadline-date-lot", "deadline-receipt-request",
+    # OEM Intelligence — winner-name/winner-country are only present
+    # on award-stage notices; confirmed valid TED v3 field names live.
+    "winner-name", "winner-country",
+    # Procurement contact — found live (2026-09) after a user report
+    # that Tender Briefing showed no contact for TED-sourced tenders.
+    # Confirmed against 5 real notices (one a Ministerie van
+    # Defensie/Netherlands MoD tender): buyer-email and the three
+    # address parts are consistently populated, not sparse — a real,
+    # previously-uncaptured gap on this platform's single biggest
+    # source, not a field that happens to be usually empty.
+    "buyer-email", "buyer-post-code", "buyer-city", "organisation-street-buyer",
+    # Eligibility/Backup Phase 1 (2026-09) — TED's own real bidder-
+    # restriction fields, confirmed live against real defence-
+    # relevant notices (see ted_eu_normalize.py's own comment on the
+    # verification). The first source beyond SAM.gov's set-aside
+    # confirmed to publish a genuine, structured restriction signal.
+    "reserved-procurement-lot", "sme-lot",
 ]
 
 
@@ -57,44 +76,75 @@ def build_defense_query(published_from: str, published_to: str) -> str:
     )
 
 
-async def fetch_notices(query: str, limit: int = 100) -> dict:
+# TED's own hard cap on the `limit` parameter — confirmed live
+# (limit=500 is rejected with SEARCH_EXCEEDS_MAX_LIMIT, maxLimits=250).
+TED_MAX_PAGE_SIZE = 250
+
+# Safety cap on total notices pulled per ingestion run, across all
+# pages — the defense CPV filter alone can match thousands of
+# notices per month once TED's full archive is in scope, and this
+# keeps one run bounded and fast rather than looping until
+# exhausted. Raise if a wider single-run pull is ever needed.
+TED_MAX_NOTICES_PER_RUN = 1000
+
+
+async def fetch_notices(query: str, limit: int = TED_MAX_PAGE_SIZE, page: int = 1) -> dict:
     """
     No API key required — confirmed from official TED docs.
+
+    scope=ALL (the full historical archive, as opposed to ACTIVE)
+    paginates via a plain `page` number, not `iterationNextToken` —
+    confirmed live: iterationNextToken came back null on every page
+    under scope=ALL regardless of how many more results existed,
+    while incrementing `page` correctly walked through the full
+    result set and returned an empty `notices` list (HTTP 200, not
+    an error) once past the end.
     """
     payload = {
         "query": query,
         "fields": TED_FIELDS,
         "limit": limit,
+        "page": page,
         "scope": "ALL",
         "checkQuerySyntax": False,
     }
-    print(f"[ted_eu_ingestion] sending query: {query}")
+    print(f"[ted_eu_ingestion] sending query (page {page}): {query}")
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(TED_API_URL, json=payload)
         response.raise_for_status()
         return response.json()
 
 
-async def _get_or_create_organization(session: AsyncSession, name: Optional[str], country: str) -> Optional[str]:
-    if not name:
-        return None
-    existing = await session.execute(
-        text("select id from organizations where name = :name and org_type = 'government_body'"),
-        {"name": name},
-    )
-    row = existing.first()
-    if row:
-        return str(row.id)
+async def fetch_all_notices(
+    query: str, max_notices: int = TED_MAX_NOTICES_PER_RUN
+) -> tuple[list[dict], Optional[str]]:
+    """
+    Walks pages of TED_MAX_PAGE_SIZE until either a short/empty page
+    signals the end of the result set, or max_notices is reached.
 
-    result = await session.execute(
-        text("""
-            insert into organizations (name, org_type, country, classification)
-            values (:name, 'government_body', :country, 'public')
-            returning id
-        """),
-        {"name": name, "country": country},
-    )
-    return str(result.scalar_one())
+    A failure on any page after the first stops pagination but keeps
+    whatever notices earlier pages already returned, rather than
+    discarding a partially-successful run — the error is returned
+    alongside them instead of raised, matching how a first-page
+    failure was already handled by the caller before pagination
+    existed.
+    """
+    all_notices: list[dict] = []
+    page = 1
+    while len(all_notices) < max_notices:
+        try:
+            body = await fetch_notices(query, limit=TED_MAX_PAGE_SIZE, page=page)
+        except httpx.HTTPStatusError as e:
+            return all_notices, f"HTTP {e.response.status_code} — {e.response.text[:200]}"
+        except httpx.RequestError as e:
+            return all_notices, f"request failed — {e}"
+
+        page_notices = body.get("notices", [])
+        all_notices.extend(page_notices)
+        if len(page_notices) < TED_MAX_PAGE_SIZE:
+            break  # short page — this was the last one
+        page += 1
+    return all_notices[:max_notices], None
 
 
 async def run_ted_eu_ingestion(
@@ -145,40 +195,39 @@ async def run_ted_eu_ingestion(
     try:
         query = build_defense_query(from_str, to_str)
 
-        try:
-            raw_response = await fetch_notices(query)
-        except httpx.HTTPStatusError as e:
-            errors.append(f"HTTP {e.response.status_code} — {e.response.text[:200]}")
-            raw_response = {"notices": []}
-        except httpx.RequestError as e:
-            errors.append(f"request failed — {e}")
-            raw_response = {"notices": []}
-
-        raw_notices = raw_response.get("notices", [])
+        raw_notices, fetch_error = await fetch_all_notices(query)
+        if fetch_error:
+            errors.append(fetch_error)
         # Debug: log what TED actually returned so we can diagnose
         # zero-result issues without needing to inspect raw HTTP
-        print(f"[ted_eu_ingestion] raw response keys: {list(raw_response.keys())}")
         print(f"[ted_eu_ingestion] notices count: {len(raw_notices)}")
         normalized, failures = normalize_batch(raw_notices)
         all_failures.extend(failures)
 
         for record in normalized:
-            org_id = await _get_or_create_organization(session, record["organization_name"], record["country"])
+            org_id = await get_or_create_government_buyer(session, record["organization_name"], record["country"])
 
             upsert_result = await session.execute(
                 text("""
                     insert into programmes
-                        (name, country, organization_id, stage, source_id, external_ref,
-                         naics_code, response_deadline, last_updated)
+                        (name, country, organization_id, stage, source_id, external_ref, ui_link,
+                         naics_code, response_deadline, contact_email, contact_address,
+                         set_aside_code, set_aside_description, last_updated)
                     values
-                        (:name, :country, :organization_id, :stage, :source_id, :external_ref,
-                         :classification_code, :response_deadline, now())
+                        (:name, :country, :organization_id, :stage, :source_id, :external_ref, :ui_link,
+                         :classification_code, :response_deadline, :contact_email, :contact_address,
+                         :set_aside_code, :set_aside_description, now())
                     on conflict (source_id, external_ref) where external_ref is not null do update
                         set name = excluded.name,
+                            ui_link = excluded.ui_link,
                             organization_id = excluded.organization_id,
                             stage = excluded.stage,
                             naics_code = excluded.naics_code,
                             response_deadline = excluded.response_deadline,
+                            contact_email = excluded.contact_email,
+                            contact_address = excluded.contact_address,
+                            set_aside_code = excluded.set_aside_code,
+                            set_aside_description = excluded.set_aside_description,
                             last_updated = now()
                     returning id
                 """),
@@ -186,8 +235,13 @@ async def run_ted_eu_ingestion(
                     "name": record["name"], "country": record["country"],
                     "organization_id": org_id, "stage": record["stage"],
                     "source_id": source_id, "external_ref": record["external_ref"],
+                    "ui_link": record.get("ui_link"),
                     "classification_code": record["classification_code"],
                     "response_deadline": record["response_deadline"],
+                    "contact_email": record["contact_email"],
+                    "contact_address": record["contact_address"],
+                    "set_aside_code": record["set_aside_code"],
+                    "set_aside_description": record["set_aside_description"],
                 },
             )
             programme_id = str(upsert_result.scalar_one())
@@ -206,6 +260,33 @@ async def run_ted_eu_ingestion(
                 """),
                 {"source_id": source_id, "programme_id": programme_id, "claim": claim},
             )
+
+            # OEM Intelligence — only populated on award-stage notices
+            # (extract_winners returns [] otherwise), so this is a
+            # no-op for every non-award notice this source ingests.
+            for winner in record["winners"]:
+                winner_org_id = await get_or_create_oem_organization(
+                    session, winner["name"], winner["country"]
+                )
+                if winner_org_id is None:
+                    continue
+                award_id = await record_contract_award(session, programme_id, winner_org_id, source_id)
+                await session.execute(
+                    text("""
+                        insert into evidence
+                            (source_id, related_entity_type, related_entity_id, claim, evidence_status, confidence)
+                        values
+                            (:source_id, 'contract_award', :award_id, :claim, 'verified', 'high')
+                    """),
+                    {
+                        "source_id": source_id, "award_id": award_id,
+                        "claim": (
+                            f"TED notice {record['external_ref']} names {winner['name']} "
+                            f"as winner (country: {winner['country'] or 'not specified'})"
+                        ),
+                    },
+                )
+
             total_ingested += 1
 
         status = "succeeded" if not errors else ("failed" if total_ingested == 0 else "succeeded")

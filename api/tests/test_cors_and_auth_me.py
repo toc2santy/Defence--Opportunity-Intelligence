@@ -62,14 +62,14 @@ def test_auth_me_only_ever_returns_the_caller_s_own_info(client):
     email_a = f"me-test-a-{uuid.uuid4().hex[:8]}@example.com"
     signup_a = client.post(
         "/auth/signup",
-        json={"company_name": "Company A", "email": email_a, "password": "a-real-password-123"},
+        json={"company_name": "Company A", "full_name": "Test Admin", "email": email_a, "password": "a-real-password-123"},
     )
     token_a = signup_a.json()["access_token"]
 
     email_b = f"me-test-b-{uuid.uuid4().hex[:8]}@example.com"
     signup_b = client.post(
         "/auth/signup",
-        json={"company_name": "Company B", "email": email_b, "password": "a-real-password-456"},
+        json={"company_name": "Company B", "full_name": "Test Admin", "email": email_b, "password": "a-real-password-456"},
     )
     token_b = signup_b.json()["access_token"]
 

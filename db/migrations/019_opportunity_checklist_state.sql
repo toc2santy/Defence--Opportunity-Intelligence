@@ -1,0 +1,24 @@
+-- ============================================================
+-- Contract onboarding checklist state — for the "Won" follow-up
+-- surfaced on the Path to Contract panel.
+--
+-- The checklist ITEMS themselves are a static template defined in
+-- the frontend (ONBOARDING_CHECKLIST_TEMPLATE), not stored per-row —
+-- deliberately general (contract/legal, compliance, delivery,
+-- financial categories that recur across defence contracts), not
+-- parsed from each tender's actual Scope of Work. No source ingested
+-- here provides structured SoW text, only a link to the tender
+-- document — see the note rendered next to the checklist telling the
+-- user to verify against the actual SoW, which can vary per source/
+-- programme. Only the CHECKED state per item id needs persisting,
+-- and it's tenant/opportunity-specific (already covered by the RLS
+-- policy on `opportunities`, so no new policy needed) — a plain
+-- jsonb map of {item_id: true} is enough; no reason to normalise
+-- into a separate table for a handful of boolean flags with no
+-- independent query need of their own.
+--
+-- Apply the same way as previous migrations:
+--   docker compose exec -T db psql -U postgres -d doi < db/migrations/019_opportunity_checklist_state.sql
+-- ============================================================
+
+alter table opportunities add column if not exists checklist_state jsonb not null default '{}'::jsonb;

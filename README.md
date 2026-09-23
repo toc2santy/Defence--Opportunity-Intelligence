@@ -150,15 +150,15 @@ of this writing:
 | Engine | Status |
 |---|---|
 | Capability Intelligence | **Real.** Weighted keyword taxonomy, human-confirmed, evidence-backed. |
-| Market Intelligence | **Partial.** Real for U.S. federal (SAM.gov). India (SRIJAN/iDEX) has no public API — unsolved, see below. |
+| Market Intelligence | **Real.** Six live sources: SAM.gov (US), UK Find a Tender, EU TED, CPPP (India), CanadaBuys, eTenders South Africa. |
 | Programme Intelligence | **Real.** NAICS + keyword matching, self-corrected once against real false positives. |
-| Customer Intelligence | Not started (Phase 4). |
-| OEM & Partner Matching | Not started (Phase 4). |
-| Competitor Intelligence | Not started (Phase 4). |
+| Customer Intelligence | **Real.** Every buyer across all six sources, with capability breakdowns resolved across NAICS/CPV/UNSPSC. |
+| OEM & Partner Matching | **Real.** OEM: winners from TED/UK FT award notices. Partner: companies winning from the same buyers in capabilities you don't cover; fit is a shared-buyer count, not an invented percentage. |
+| Competitor Intelligence | **Real.** Tenant-scoped: winners in capability areas the tenant has analyst-confirmed. |
 | Opportunity Intelligence | **Real**, but only as the direct output of Programme Intelligence matching — no independent scoring model beyond that yet. |
-| Procurement Intelligence | **Real**, folded into the SAM.gov ingestion (opportunity stage, deadlines). |
-| Engagement Intelligence | Not started. |
-| Next-Best-Action | Not started. |
+| Procurement Intelligence | **Real.** Own funnel view over `programmes.stage` by source/country; deadlines stored and drive NBA urgency. |
+| Engagement Intelligence | **Real.** Pipeline management + audit-logged history, plus the published procurement contact per tender — shown only against that tender, never aggregated into a searchable directory (see db/migrations/017). |
+| Next-Best-Action | **Real.** Rules-based recommendation per opportunity from stage + confidence + deadline urgency. |
 
 The original marketing site prototype's "engine" logic (an 11-line
 keyword table, hash-based fake scores) has been fully superseded by

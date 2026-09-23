@@ -19,6 +19,8 @@ API — the highest-value single source addition in this project.
 
 from typing import Optional, TypedDict
 
+from app.address_format import format_address
+
 
 # Defense-relevant CPV prefixes — same verified set used by UK
 # Find a Tender, reused here for consistency. TED's server-side
@@ -51,6 +53,11 @@ _STAGE_MAP = {
 }
 
 
+class NormalizedWinner(TypedDict):
+    name: str
+    country: Optional[str]
+
+
 class NormalizedProgramme(TypedDict):
     external_ref: str
     name: str
@@ -63,6 +70,11 @@ class NormalizedProgramme(TypedDict):
     response_deadline: Optional[str]
     ui_link: Optional[str]
     notice_type: Optional[str]
+    winners: list[NormalizedWinner]
+    contact_email: Optional[str]
+    contact_address: Optional[str]
+    set_aside_code: Optional[str]
+    set_aside_description: Optional[str]
 
 
 def _extract_multilingual(obj, field_name: str) -> Optional[str]:
@@ -94,6 +106,66 @@ def _extract_multilingual(obj, field_name: str) -> Optional[str]:
     if isinstance(obj, list) and obj:
         return str(obj[0]).strip()
     return None
+
+
+def extract_winners(winner_name_field, winner_country_field) -> list[NormalizedWinner]:
+    """
+    A single award notice can name SEVERAL winners at once (one per
+    lot) — confirmed against live data, so this returns a list, not
+    a single value like _extract_multilingual does.
+
+    Real TED data has two irregularities this deliberately guards
+    against rather than assumes away:
+      1. winner-name's list routinely contains the SAME company
+         repeated once per lot it won (a live notice with 14 raw
+         names had only 11 distinct companies) — deduplicated here,
+         preserving first-seen order.
+      2. winner-name and winner-country are positionally parallel
+         MOST of the time (8 of 9 live notices sampled had exactly
+         one country per distinct winner) but not always — one
+         sample had 2 distinct names against 3 countries. Zipping
+         them regardless would silently mis-attribute a country to
+         the wrong company, so countries are only attached when the
+         deduplicated name count matches the country count exactly;
+         otherwise every winner in that notice gets country=None
+         rather than a guess.
+    """
+    if not winner_name_field:
+        return []
+
+    if isinstance(winner_name_field, dict):
+        raw_names = None
+        for lang_key in ("eng", "ENG", "en", "EN"):
+            if lang_key in winner_name_field:
+                raw_names = winner_name_field[lang_key]
+                break
+        if raw_names is None and winner_name_field:
+            raw_names = next(iter(winner_name_field.values()))
+    else:
+        raw_names = winner_name_field
+
+    if raw_names is None:
+        return []
+    if not isinstance(raw_names, list):
+        raw_names = [raw_names]
+
+    seen = []
+    for name in raw_names:
+        name = str(name).strip()
+        if name and name not in seen:
+            seen.append(name)
+    if not seen:
+        return []
+
+    countries = winner_country_field if isinstance(winner_country_field, list) else (
+        [winner_country_field] if winner_country_field else []
+    )
+    countries_align = len(countries) == len(seen)
+
+    return [
+        {"name": name, "country": (countries[i] if countries_align else None)}
+        for i, name in enumerate(seen)
+    ]
 
 
 def normalize_ted_notice(raw: dict) -> NormalizedProgramme:
@@ -134,9 +206,57 @@ def normalize_ted_notice(raw: dict) -> NormalizedProgramme:
     if isinstance(pub_date, list):
         pub_date = pub_date[0] if pub_date else None
 
-    deadline = _extract_multilingual(raw.get("deadline-receipt-tenders"), "deadline")
+    deadline = _extract_multilingual(raw.get("deadline-date-lot"), "deadline")
     if not deadline:
         deadline = _extract_multilingual(raw.get("deadline-receipt-request"), "deadline")
+
+    # Only populated for award-stage notices — TED returns
+    # winner-name/winner-country keys as absent (not empty) on
+    # non-award notices, and extract_winners already returns []
+    # for a missing field, so no stage check is needed here to
+    # avoid attaching winners to the wrong notice type.
+    winners = extract_winners(raw.get("winner-name"), raw.get("winner-country"))
+
+    # Live-verified 2026-09 (see db/migrations' own CLAUDE.md entry):
+    # buyer-email/organisation-email-buyer are identical duplicates on
+    # every sampled notice, so only the shorter field name is
+    # requested. buyer-post-code and organisation-street-buyer come
+    # back as PLAIN LISTS on real notices, not the multilingual dict
+    # shape most other TED fields use — _extract_multilingual already
+    # handles both shapes, so no separate parsing path is needed.
+    contact_email = _extract_multilingual(raw.get("buyer-email"), "buyer-email")
+    street = _extract_multilingual(raw.get("organisation-street-buyer"), "street")
+    locality = _extract_multilingual(raw.get("buyer-city"), "city")
+    postal_code = _extract_multilingual(raw.get("buyer-post-code"), "post-code")
+    # A bare country name on its own ("DEU") isn't an address anyone
+    # could actually write to — only build one when at least one real
+    # locality-level part is present; country alone is left out
+    # rather than shown as a sparse, low-value single-word "address".
+    contact_address = (
+        format_address(street=street, locality=locality, postal_code=postal_code, country=country)
+        if (street or locality or postal_code) else None
+    )
+
+    # Eligibility/Backup Phase 1 (2026-09) — the first non-SAM.gov
+    # source confirmed to publish a real, structured bidder-
+    # restriction signal. Live-verified against 10 real defence-
+    # relevant notices before wiring this in: `sme-lot` is a plain
+    # boolean per lot (true on 2 of 10 sampled), `reserved-procurement
+    # -lot` is "none" on every sampled notice when unrestricted —
+    # never seen a real non-"none" value live, so that case is
+    # handled generically (the raw value shown as-is) rather than
+    # translating a category this project hasn't actually observed
+    # and can't verify the wording of. sme-lot checked first since a
+    # real notice can carry both, and "reserved for SMEs" is the
+    # clearer, more specific fact to surface.
+    sme_lot = raw.get("sme-lot")
+    if isinstance(sme_lot, list) and any(v is True for v in sme_lot):
+        set_aside_code, set_aside_description = "SME", "Reserved for small/medium enterprises (SME)"
+    else:
+        reserved = raw.get("reserved-procurement-lot")
+        reserved_values = reserved if isinstance(reserved, list) else ([reserved] if reserved else [])
+        non_none = next((v for v in reserved_values if v and v != "none"), None)
+        set_aside_code, set_aside_description = (non_none, f"Reserved procurement: {non_none}") if non_none else (None, None)
 
     return {
         "external_ref": pub_number,
@@ -150,6 +270,11 @@ def normalize_ted_notice(raw: dict) -> NormalizedProgramme:
         "response_deadline": str(deadline) if deadline else None,
         "ui_link": f"https://ted.europa.eu/en/notice/-/detail/{pub_number}",
         "notice_type": notice_type,
+        "winners": winners,
+        "contact_email": contact_email,
+        "contact_address": contact_address,
+        "set_aside_code": set_aside_code,
+        "set_aside_description": set_aside_description,
     }
 
 

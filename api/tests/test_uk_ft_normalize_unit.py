@@ -11,7 +11,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.uk_ft_normalize import normalize_release, normalize_batch, is_defense_relevant_cpv
+from app.uk_ft_normalize import (
+    normalize_release, normalize_batch, is_defense_relevant_cpv, extract_winners, extract_contact,
+    extract_set_aside,
+)
 
 
 # Verbatim from GOV.UK's own documented example response
@@ -137,3 +140,143 @@ def test_batch_isolates_malformed_records():
     normalized, failures = normalize_batch([good, bad])
     assert len(normalized) == 1
     assert len(failures) == 1
+
+
+# --- OEM Intelligence: winner extraction ---------------------------
+# The fixture below is a trimmed copy of a real live award-release
+# 'parties' entry (captured earlier this session) — a supplier party
+# carries its own name and country directly, unlike TED's parallel
+# arrays, so there's no alignment risk to guard against here.
+
+REAL_SUPPLIER_PARTY = {
+    "name": "Corporate Travel Management (North) Limited",
+    "id": "GB-FTS-186047",
+    "address": {
+        "streetAddress": "Shire House, Humboldt Street",
+        "locality": "Bradford",
+        "countryName": "United Kingdom",
+    },
+    "roles": ["supplier"],
+}
+
+
+def test_extract_winners_from_supplier_party():
+    release = {"parties": [
+        {"name": "British Tourist Authority", "roles": ["buyer"]},
+        REAL_SUPPLIER_PARTY,
+    ]}
+    assert extract_winners(release) == [
+        {"name": "Corporate Travel Management (North) Limited", "country": "United Kingdom"},
+    ]
+
+
+def test_extract_winners_multiple_suppliers():
+    release = {"parties": [
+        REAL_SUPPLIER_PARTY,
+        {"name": "TBR Global Limited", "roles": ["supplier"], "address": {"countryName": "United Kingdom"}},
+    ]}
+    winners = extract_winners(release)
+    assert [w["name"] for w in winners] == [
+        "Corporate Travel Management (North) Limited", "TBR Global Limited",
+    ]
+
+
+def test_extract_winners_ignores_non_supplier_roles():
+    release = {"parties": [{"name": "Some Reviewer", "roles": ["reviewBody"]}]}
+    assert extract_winners(release) == []
+
+
+def test_extract_winners_handles_missing_address():
+    release = {"parties": [{"name": "No Address Ltd", "roles": ["supplier"]}]}
+    assert extract_winners(release) == [{"name": "No Address Ltd", "country": None}]
+
+
+def test_extract_winners_empty_when_no_parties():
+    assert extract_winners({}) == []
+
+
+def test_normalize_release_includes_winners():
+    release = dict(REAL_EXAMPLE)
+    release["parties"] = list(REAL_EXAMPLE["parties"]) + [REAL_SUPPLIER_PARTY]
+    record = normalize_release(release)
+    assert record["winners"] == [
+        {"name": "Corporate Travel Management (North) Limited", "country": "United Kingdom"},
+    ]
+
+
+def test_normalize_release_winners_empty_when_no_supplier():
+    assert normalize_release(REAL_EXAMPLE)["winners"] == []
+
+
+# --- contact address, added alongside db/migrations/029 -------------
+
+def test_buyer_address_is_read_from_the_same_ocds_shape_as_supplier_address():
+    """
+    The buyer party's `address` uses the identical OCDS Address object
+    already confirmed live on SUPPLIER parties (see
+    REAL_SUPPLIER_PARTY above) — same schema, different role.
+    """
+    release = {"parties": [
+        {"name": "Bradford Council", "roles": ["buyer"],
+         "address": {"streetAddress": "Britannia House", "locality": "Bradford",
+                      "region": "West Yorkshire", "postalCode": "BD1 1HX", "countryName": "United Kingdom"},
+         "contactPoint": {"name": "Procurement Team", "email": "procurement@bradford.gov.uk"}},
+    ]}
+    contact = extract_contact(release)
+    assert contact["contact_name"] == "Procurement Team"
+    assert "Bradford" in contact["contact_address"]
+    assert "BD1 1HX" in contact["contact_address"]
+    assert "United Kingdom" in contact["contact_address"]
+
+
+def test_no_buyer_address_gives_none_not_an_error():
+    release = {"parties": [{"name": "X", "roles": ["buyer"], "contactPoint": {"name": "Y"}}]}
+    contact = extract_contact(release)
+    assert contact["contact_address"] is None
+
+
+def test_no_buyer_party_at_all_gives_a_fully_empty_contact():
+    contact = extract_contact({"parties": []})
+    assert contact == {"contact_name": None, "contact_email": None, "contact_phone": None, "contact_address": None}
+
+
+# --- eligibility: reservedParticipation, Eligibility Phase 1 follow-up (2026-09) ---
+# Real field path confirmed by a live scan of ~1000 real Find a
+# Tender releases: tender.otherRequirements.reservedParticipation,
+# NOT a top-level reservedParticipationLocation field (never observed
+# live despite this project's own earlier note naming it). One real
+# example found live: release 041633-2026 carries ["shelteredWorkshop"].
+
+def test_extract_set_aside_reads_the_real_live_confirmed_value():
+    tender = {"otherRequirements": {"reservedParticipation": ["shelteredWorkshop"]}}
+    code, description = extract_set_aside(tender)
+    assert code == "shelteredWorkshop"
+    assert description == "Reserved for sheltered workshops / supported businesses"
+
+
+def test_extract_set_aside_unknown_code_shows_raw_value_not_a_guessed_label():
+    tender = {"otherRequirements": {"reservedParticipation": ["someCodeWeHaveNeverSeen"]}}
+    code, description = extract_set_aside(tender)
+    assert code == "someCodeWeHaveNeverSeen"
+    assert description == "Reserved participation: someCodeWeHaveNeverSeen"
+
+
+def test_extract_set_aside_none_when_field_absent():
+    assert extract_set_aside({}) == (None, None)
+    assert extract_set_aside({"otherRequirements": {}}) == (None, None)
+    assert extract_set_aside({"otherRequirements": {"reservedParticipation": []}}) == (None, None)
+
+
+def test_normalize_release_includes_set_aside_fields():
+    release = dict(REAL_EXAMPLE)
+    release["tender"] = dict(REAL_EXAMPLE["tender"])
+    release["tender"]["otherRequirements"] = {"reservedParticipation": ["shelteredWorkshop"]}
+    record = normalize_release(release)
+    assert record["set_aside_code"] == "shelteredWorkshop"
+    assert record["set_aside_description"] == "Reserved for sheltered workshops / supported businesses"
+
+
+def test_normalize_release_set_aside_none_when_not_reserved():
+    record = normalize_release(REAL_EXAMPLE)
+    assert record["set_aside_code"] is None
+    assert record["set_aside_description"] is None

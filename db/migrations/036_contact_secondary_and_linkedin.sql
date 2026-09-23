@@ -1,0 +1,32 @@
+-- ============================================================
+-- Two independent, small additions from the same review:
+--
+-- 1. programmes.contact_email_secondary — SAM.gov's own
+--    `pointOfContact` array genuinely carries TWO tagged entries
+--    (type: "primary" / "secondary") on real notices, confirmed
+--    against GSA's own documented example. This platform was already
+--    reading the primary one (see app/sam_gov_normalize.extract_contact)
+--    and discarding the secondary entirely — a real, addressable gap,
+--    the same class as the pointOfContact/officeAddress gap fixed
+--    earlier. Kept as its OWN column rather than a list, matching the
+--    existing single-contact-per-programme shape every other source
+--    already uses, and under the exact same scope limit as
+--    contact_name/contact_email/contact_phone (migration 017): read
+--    only via the one programme it belongs to, never listed or
+--    aggregated across tenders.
+--
+-- 2. tenants.linkedin_url — a company's own declared LinkedIn company
+--    page. Deliberately NOT accompanied by any "verified" claim or
+--    badge: this platform has no LinkedIn OAuth integration and
+--    cannot independently confirm the URL actually belongs to this
+--    company. What IS real is who may set it — only a signed-in admin
+--    of this tenant, whose own email was confirmed at signup — the
+--    same identity binding every other company-profile field already
+--    relies on, not a new mechanism invented for this one field.
+--
+-- Apply:
+--   docker compose exec -T db psql -U postgres -d doi < db/migrations/036_contact_secondary_and_linkedin.sql
+-- ============================================================
+
+alter table programmes add column if not exists contact_email_secondary text;
+alter table tenants add column if not exists linkedin_url text;

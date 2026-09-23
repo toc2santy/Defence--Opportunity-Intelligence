@@ -1,0 +1,96 @@
+# ============================================================
+# Isolated test stack (2026-09) — a real, reproducible problem this
+# fixes: the test suite (tests/conftest.py) has always hit whatever
+# API is listening on localhost:8000, which for every dev session so
+# far has been the SAME container docker-compose.yml starts — meaning
+# every pytest run's own signups (`unique_email()`/`new_tenant`) were
+# permanently written into the real dev database. Two full cleanups
+# this session deleted 8155 and then 1383 throwaway tenants that had
+# built up exactly this way. This file starts a SECOND, throwaway
+# Postgres + API pair on different ports so a test run can no longer
+# touch real data at all, by construction — not by remembering to be
+# careful.
+#
+# A PLAIN postgres:16 image is used for db-test, not the custom
+# db/Dockerfile image the real `db` service uses — that image adds
+# wal-g + continuous WAL archiving to the SAME R2 bucket real backups
+# go to (see db/Dockerfile). Test data does not belong in that
+# archive, and there is nothing worth backing up in a database that
+# gets torn down between runs anyway.
+#
+# Usage:
+#   docker compose -f docker-compose.test.yml up -d --build
+#   docker compose -f docker-compose.test.yml exec api-test alembic upgrade head
+#   cd api && TEST_API_BASE_URL=http://localhost:8001 \
+#             TEST_DB_DSN=postgresql://postgres:postgres@localhost:5433/doi \
+#             pytest -v
+#   docker compose -f docker-compose.test.yml down -v   # tear down + wipe the test DB volume
+#
+# tests/conftest.py already defaults to these same 8001/5433 values —
+# the env vars above only matter if you've changed the ports here.
+# ============================================================
+
+services:
+  db-test:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: doi
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - doi_test_pgdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./db/roles.sql:/docker-entrypoint-initdb.d/00_roles.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api-test:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://doi_app:changeme@db-test:5432/doi
+      ALEMBIC_DATABASE_URL: postgresql+asyncpg://postgres:postgres@db-test:5432/doi
+      # Real secrets (SAM_GOV_API_KEY, R2_*, SMTP_*) are deliberately
+      # NOT passed through here — this stack is for the ordinary test
+      # suite, which already skips every test that needs a real one
+      # (see CLAUDE.md's Tests section: test_sam_gov_live.py and
+      # friends are opt-in, gated behind env flags this file doesn't
+      # set). A test run should never be able to hit a real external
+      # account by accident just because .env happens to have one.
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in .env — copy .env.example to .env and fill it in}
+      # A dedicated key, not read from .env — this stack's own
+      # throwaway secret, never needs to match the real deployment's
+      # (no data ever needs to survive between the two).
+      MFA_ENCRYPTION_KEY: UCsoOWOAcbjf0PaVOqeQUAEDNzQT2q0bZRcchC5slHE=
+      PII_ENCRYPTION_KEY: Yi8E1v52oJeAJi2dY15BHMl3OIyfhjozLeD54JpehRI=
+      FRONTEND_ORIGIN: http://localhost:5500
+      # Deliberately generous — this is a throwaway stack exercised
+      # only by the local test suite, not the rate limits a real
+      # deployment needs; a tight limit here just makes repeated test
+      # runs in the same hour start failing on THIS stack's own
+      # limiter state, the exact problem CLAUDE.md already documents
+      # for the real dev API.
+      SIGNUP_RATE_LIMIT: 100000/hour
+      LOGIN_RATE_LIMIT: 100000/hour
+      PASSWORD_RESET_RATE_LIMIT: 100000/hour
+      # Deliberately NOT overridden — test_rate_limiting.py relies on
+      # this real, low default (5/hour) to actually reach a 429 within
+      # a handful of calls. Not a problem for repeated runs the way
+      # signup/login are: this is a throwaway container that gets
+      # rebuilt/restarted between real dev sessions anyway, which
+      # resets the limiter's in-memory state (see CLAUDE.md's own
+      # existing note on this same tension for the real dev stack).
+    ports:
+      - "8001:8000"
+    depends_on:
+      db-test:
+        condition: service_healthy
+
+volumes:
+  doi_test_pgdata:

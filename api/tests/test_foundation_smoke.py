@@ -38,7 +38,7 @@ def test_signup_duplicate_email_is_rejected(client, new_tenant):
     resp = client.post(
         "/auth/signup",
         json={
-            "company_name": "Another Company",
+            "company_name": "Another Company", "full_name": "Test Admin",
             "email": new_tenant["email"],  # reuse the same email deliberately
             "password": "a-different-password-1",
         },
@@ -50,7 +50,7 @@ def test_signup_rejects_short_password(client):
     resp = client.post(
         "/auth/signup",
         json={
-            "company_name": "Short Password Co",
+            "company_name": "Short Password Co", "full_name": "Test Admin",
             "email": "shortpw@example.com",
             "password": "tooshort",  # under 10 chars
         },
@@ -128,7 +128,7 @@ def test_tenant_cannot_see_another_tenants_products(client, auth_headers):
     email_b = f"tenant-b-{uuid.uuid4().hex[:10]}@example.com"
     signup_b = client.post(
         "/auth/signup",
-        json={"company_name": "Tenant B Co", "email": email_b, "password": "another-real-password-1"},
+        json={"company_name": "Tenant B Co", "full_name": "Test Admin", "email": email_b, "password": "another-real-password-1"},
     )
     assert signup_b.status_code == 201
     token_b = signup_b.json()["access_token"]

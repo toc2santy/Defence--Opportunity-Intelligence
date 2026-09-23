@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.sam_gov_normalize import get_naics_group, DEFENSE_RELEVANT_NAICS, NAICS_GROUP_SIZE
 
 
-CODES = list(DEFENSE_RELEVANT_NAICS.keys())  # currently 6 real codes
+CODES = list(DEFENSE_RELEVANT_NAICS.keys())  # a real, live-verified set — see module docstring for how it's grounded
 
 
 def test_first_group_is_first_n_codes():
@@ -23,10 +23,22 @@ def test_second_group_is_next_n_codes():
     assert get_naics_group(CODES, 1) == CODES[3:6]
 
 
-def test_rotation_wraps_around_to_first_group():
-    # with 6 codes and group size 3, there are exactly 2 groups —
-    # index 2 should wrap back to the same as index 0
-    assert get_naics_group(CODES, 2) == get_naics_group(CODES, 0)
+def test_rotation_wraps_around_after_the_real_total_group_count():
+    # Deliberately computed from len(CODES), not a hardcoded group
+    # count — DEFENSE_RELEVANT_NAICS has grown once already (6 -> 14
+    # codes, 2026-09) after a real coverage gap was found, and a
+    # magic number here would have silently stopped testing the real
+    # wraparound the moment that list changed size again.
+    import math
+    total_groups = math.ceil(len(CODES) / NAICS_GROUP_SIZE)
+    assert get_naics_group(CODES, total_groups) == get_naics_group(CODES, 0)
+
+
+def test_wraparound_still_works_with_a_fixed_small_list():
+    # The general wraparound LOGIC, independent of however many real
+    # codes DEFENSE_RELEVANT_NAICS happens to hold right now.
+    codes = ["A", "B", "C", "D", "E", "F"]  # 6 codes, group size 3 -> exactly 2 groups
+    assert get_naics_group(codes, 2) == get_naics_group(codes, 0)
 
 
 def test_successive_indices_actually_differ():
@@ -52,3 +64,15 @@ def test_uneven_split_last_group_is_partial():
     assert get_naics_group(codes, 0) == ["A", "B", "C"]
     assert get_naics_group(codes, 1) == ["D", "E"]
     assert get_naics_group(codes, 2) == ["A", "B", "C"]  # wraps
+
+
+def test_defense_relevant_naics_now_covers_at_least_fourteen_codes():
+    """
+    Pins the real coverage-gap fix: this used to be 6 codes, meaning
+    only 2 rotation groups ever existed and most capability areas
+    (Naval, Land Systems, Comms, Aerospace engines, Space, Cyber, MRO)
+    could never surface real SAM.gov data no matter how good their
+    taxonomy_naics_mapping rows were. Guards against it silently
+    shrinking back.
+    """
+    assert len(DEFENSE_RELEVANT_NAICS) >= 14

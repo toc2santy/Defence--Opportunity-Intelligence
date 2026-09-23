@@ -20,6 +20,32 @@ def test_list_taxonomy_is_readable_by_any_authenticated_user(client, auth_header
     assert "keyword_count" in body[0]
 
 
+def test_list_taxonomy_carries_real_contribution_counts(client, auth_headers):
+    """
+    A user's fair question, addressed live (2026-09): after migration
+    041 narrowed NAICS 334511 from 11 mappings down to 3, how do you
+    actually SEE that effect per capability instead of asking for a
+    manual database check every time? Every row must carry
+    mapping_count/programme_count/contract_award_count, and the three
+    capabilities migration 041 kept mapped to 334511 must show a real,
+    non-trivial programme_count — proof this is live data, not a
+    placeholder always returning 0.
+    """
+    resp = client.get("/admin/taxonomy", headers=auth_headers)
+    body = resp.json()
+    for row in body:
+        for key in ("mapping_count", "programme_count", "contract_award_count"):
+            assert key in row
+            assert isinstance(row[key], int)
+            assert row[key] >= 0
+
+    kept_by_334511 = {"SENSING.RADAR", "SONAR.PASSIVE", "SENSORS.GENERAL"}
+    for row in body:
+        if row["code"] in kept_by_334511:
+            assert row["mapping_count"] > 0
+            assert row["programme_count"] > 0
+
+
 def test_taxonomy_list_requires_authentication(client):
     resp = client.get("/admin/taxonomy")
     assert resp.status_code in (401, 403)
@@ -95,6 +121,15 @@ def test_platform_admin_can_create_taxonomy_entry_and_add_keywords(client, auth_
     del_resp = client.delete(f"/admin/taxonomy/keywords/{keyword_id}", headers=auth_headers)
     assert del_resp.status_code == 200
 
+    # A real bug this test itself was causing, found live (2026-09):
+    # capability_taxonomy is shared, non-tenant-scoped reference data
+    # (see CLAUDE.md) — every run of this test permanently added a
+    # new "Test Sector" row that nothing ever cleaned up, which
+    # corrupted the Sector Coverage feature's real counts (a fake
+    # sector nobody actually has capabilities in, sitting alongside
+    # 21 real ones). Clean up what this test itself created.
+    db_cursor.execute("delete from capability_taxonomy where id = %s", (capability_id,))
+
 
 def test_duplicate_taxonomy_code_is_rejected(client, auth_headers, db_cursor):
     db_cursor.execute(
@@ -113,6 +148,11 @@ def test_duplicate_taxonomy_code_is_rejected(client, auth_headers, db_cursor):
         json={"code": unique_code, "label": "Second, Same Code", "sector": "Test"},
     )
     assert second.status_code == 409
+
+    # Same cleanup reasoning as the test above — this creates one
+    # real, permanent capability_taxonomy row (the "first" one that
+    # succeeded; the "second" attempt was rejected and left nothing).
+    db_cursor.execute("delete from capability_taxonomy where code = %s", (unique_code,))
 
 
 def _extract_user_id_from_token(headers):

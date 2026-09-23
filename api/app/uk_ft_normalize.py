@@ -27,6 +27,8 @@ sources, not guessed:
 
 from typing import Optional, TypedDict
 
+from app.address_format import format_address
+
 # The entire "35" CPV division is security/defence equipment — see
 # module docstring. These specific 50-series codes are defense-
 # relevant repair/maintenance services that sit OUTSIDE that
@@ -63,6 +65,11 @@ _STAGE_MAP = {
 }
 
 
+class NormalizedWinner(TypedDict):
+    name: str
+    country: Optional[str]
+
+
 class NormalizedProgramme(TypedDict):
     external_ref: str
     name: str
@@ -73,6 +80,98 @@ class NormalizedProgramme(TypedDict):
     classification_scheme: Optional[str]
     posted_date: Optional[str]
     ui_link: Optional[str]
+    winners: list[NormalizedWinner]
+    contact_name: Optional[str]
+    contact_email: Optional[str]
+    contact_phone: Optional[str]
+    contact_address: Optional[str]
+    set_aside_code: Optional[str]
+    set_aside_description: Optional[str]
+
+
+# Eligibility/Backup Phase 1 follow-up (2026-09) — the field this
+# project's own eligibility audit found live but left unwired. Real
+# path confirmed by a live scan of ~1000 real Find a Tender releases:
+# `tender.otherRequirements.reservedParticipation` — an ARRAY of OCDS
+# codelist values (not a top-level `reservedParticipationLocation`
+# field, which was never actually observed live despite the name
+# this project originally noted; `reservedParticipation` inside
+# `otherRequirements` is the real field, confirmed by walking a real
+# release's full JSON for every key containing "reserved"). One real
+# example found live: release 041633-2026 carries
+# `["shelteredWorkshop"]`. Only that one value has ever been directly
+# observed, so only it gets a translated description — any other
+# codelist value this project hasn't seen yet is shown as its raw
+# code rather than a guessed-at label, same "don't invent, surface
+# the raw source text" rule DNCP Paraguay's own eligibility fallback
+# already established.
+_RESERVED_PARTICIPATION_LABELS = {
+    "shelteredWorkshop": "Reserved for sheltered workshops / supported businesses",
+}
+
+
+def extract_set_aside(tender: dict) -> tuple[Optional[str], Optional[str]]:
+    values = (tender.get("otherRequirements") or {}).get("reservedParticipation") or []
+    if not values:
+        return None, None
+    code = values[0]
+    description = _RESERVED_PARTICIPATION_LABELS.get(code, f"Reserved participation: {code}")
+    return code, description
+
+
+def extract_winners(raw: dict) -> list[NormalizedWinner]:
+    """
+    OCDS represents a winner as a `parties` entry with role
+    'supplier' — confirmed live, and unlike TED, each supplier party
+    already carries its own name and country directly (no separate
+    array to zip and no risk of misalignment), because OCDS parties
+    are individually-addressed objects, not the parallel arrays TED
+    uses. Only present on award-stage releases in practice, since
+    only those name a supplier at all.
+    """
+    winners = []
+    for party in raw.get("parties") or []:
+        if "supplier" not in (party.get("roles") or []):
+            continue
+        name = (party.get("name") or "").strip()
+        if not name:
+            continue
+        country = ((party.get("address") or {}).get("countryName") or "").strip() or None
+        winners.append({"name": name, "country": country})
+    return winners
+
+
+def extract_contact(raw: dict) -> dict:
+    """
+    OCDS puts the procurement contact on the buyer party's
+    `contactPoint`. Live data is a mix of named individuals
+    ("MIRELA SIMIONOV") and team inboxes ("Corporate Procurement
+    Team"), which cannot be reliably told apart — so both are treated
+    as personal data and handled under the same restriction (see
+    db/migrations/017).
+
+    The buyer party's `address` is read from the same object, using
+    the identical OCDS Address shape (streetAddress/locality/region/
+    postalCode/countryName) already confirmed live on SUPPLIER parties
+    in this exact payload type (see extract_winners below) — the
+    schema is the same regardless of which role the party carries.
+    """
+    for party in raw.get("parties") or []:
+        if "buyer" not in (party.get("roles") or []):
+            continue
+        cp = party.get("contactPoint") or {}
+        address = party.get("address") or {}
+        return {
+            "contact_name": (cp.get("name") or "").strip() or None,
+            "contact_email": (cp.get("email") or "").strip() or None,
+            "contact_phone": (cp.get("telephone") or "").strip() or None,
+            "contact_address": format_address(
+                street=address.get("streetAddress"), locality=address.get("locality"),
+                region=address.get("region"), postal_code=address.get("postalCode"),
+                country=address.get("countryName"),
+            ),
+        }
+    return {"contact_name": None, "contact_email": None, "contact_phone": None, "contact_address": None}
 
 
 def normalize_release(raw: dict) -> NormalizedProgramme:
@@ -107,6 +206,8 @@ def normalize_release(raw: dict) -> NormalizedProgramme:
                 organization_name = party.get("name")
                 break
 
+    set_aside_code, set_aside_description = extract_set_aside(tender)
+
     return {
         "external_ref": release_id,
         "name": title,
@@ -117,6 +218,13 @@ def normalize_release(raw: dict) -> NormalizedProgramme:
         "classification_scheme": classification_scheme,
         "posted_date": raw.get("date"),
         "ui_link": f"https://www.find-tender.service.gov.uk/Notice/{release_id}" if release_id else None,
+        "winners": extract_winners(raw),
+        # Procurement contact for THIS tender, from the buyer party's
+        # OCDS contactPoint — see db/migrations/017 for the deliberate
+        # scope limit on how this personal data may be used.
+        **extract_contact(raw),
+        "set_aside_code": set_aside_code,
+        "set_aside_description": set_aside_description,
     }
 
 

@@ -22,7 +22,7 @@ def test_confirmed_capability_matches_naics_and_keyword_programme(client, auth_h
         returning id
         """,
         ("Test Fixture: Secure UAV Data Link Modernisation", "United States",
-         "rfp_issued", source_id, "334511", fixture_ref),
+         "rfp_issued", source_id, "336411", fixture_ref),
     )
     programme_id = str(db_cursor.fetchone()["id"])
 
@@ -62,6 +62,56 @@ def test_confirmed_capability_matches_naics_and_keyword_programme(client, auth_h
     assert any(o["programme_name"] == "Test Fixture: Secure UAV Data Link Modernisation" for o in opps)
 
 
+def test_match_response_includes_an_honest_trace(client, auth_headers, db_cursor):
+    """
+    The Match Trace panel shown to a customer reads this field —
+    every number in it must be something the matching function itself
+    actually counted, not a display-only estimate. Pinned here with
+    concrete assertions so a future refactor can't quietly turn it
+    back into decoration.
+    """
+    db_cursor.execute("select id from sources where name = 'SAM.gov Contract Opportunities API'")
+    source_id = db_cursor.fetchone()["id"]
+    fixture_ref = f"test-fixture-{uuid.uuid4().hex}"
+    db_cursor.execute(
+        """
+        insert into programmes (name, country, stage, source_id, naics_code, external_ref)
+        values (%s, %s, %s, %s, %s, %s)
+        """,
+        ("Test Fixture: Sonar Trace Check", "United States", "rfp_issued", source_id, "336611", fixture_ref),
+    )
+
+    create_resp = client.post(
+        "/products", headers=auth_headers,
+        json={"name": "Trace Test Product", "description": "Naval sonar systems", "trl": 6},
+    )
+    product_id = create_resp.json()["id"]
+    classify_resp = client.post(f"/products/{product_id}/classify", headers=auth_headers)
+    candidates = classify_resp.json()["candidates"]
+    naval_candidate = next(c for c in candidates if c["code"] == "NAVAL.SYSTEMS")
+    client.post(
+        f"/products/{product_id}/capabilities/{naval_candidate['capability_id']}/confirm",
+        headers=auth_headers,
+    )
+
+    match_resp = client.post(f"/products/{product_id}/match-programmes", headers=auth_headers)
+    assert match_resp.status_code == 200
+    body = match_resp.json()
+    trace = body["trace"]
+
+    for key in ("capabilities_checked", "programmes_examined", "sources_touched", "opportunities_matched"):
+        assert key in trace
+
+    assert len(trace["capabilities_checked"]) == 1
+    assert trace["capabilities_checked"][0]["code"] == "NAVAL.SYSTEMS"
+    # This is the actual honesty check: opportunities_matched must
+    # equal the real length of the matches list returned alongside
+    # it, not some other number computed separately.
+    assert trace["opportunities_matched"] == len(body["matches"])
+    assert trace["programmes_examined"] >= trace["opportunities_matched"]
+    assert "SAM.gov Contract Opportunities API" in trace["sources_touched"]
+
+
 def test_unconfirmed_capability_produces_no_matches(client, auth_headers):
     # classify but deliberately never confirm — this is the
     # human-in-the-loop gate: an ai_suggested capability alone
@@ -88,7 +138,7 @@ def test_rerunning_match_updates_the_same_opportunity_not_duplicates(client, aut
         values (%s, %s, %s, %s, %s, %s)
         returning id
         """,
-        ("Test Fixture: Repeat Match UAV Programme", "United States", "rfp_issued", source_id, "334511", fixture_ref),
+        ("Test Fixture: Repeat Match UAV Programme", "United States", "rfp_issued", source_id, "336411", fixture_ref),
     )
 
     create_resp = client.post(

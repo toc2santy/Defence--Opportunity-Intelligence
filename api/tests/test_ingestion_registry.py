@@ -42,6 +42,51 @@ def test_sources_status_requires_authentication(client):
     assert resp.status_code in (401, 403)
 
 
+def test_sources_status_carries_per_source_health(client, auth_headers):
+    """
+    Source-health monitoring (2026-09) — the real fix for a real past
+    incident: eTenders South Africa went silently dead for 3 weeks
+    before a human noticed by hand (see CLAUDE.md), because the only
+    "last run" signal available was /ingestion/jobs' `limit 20`
+    GLOBAL feed, which a busier source can push a quiet one out of
+    entirely. This checks every registered source now carries its OWN
+    last-success/last-attempt/health fields, computed independently of
+    that shared window, and that the three-way `health` state and its
+    own stated threshold rule are internally consistent — not just
+    present.
+    """
+    resp = client.get("/ingestion/sources/status", headers=auth_headers)
+    body = resp.json()
+    assert len(body["sources"]) >= 3
+
+    for s in body["sources"]:
+        assert s["health"] in ("healthy", "stale", "never_run")
+        # health_threshold_hours must follow the documented rule
+        # exactly: max(48, interval_hours * 3) — not just "some number".
+        assert s["health_threshold_hours"] == max(48, s["interval_hours"] * 3)
+        if s["health"] == "never_run":
+            assert s["last_success_at"] is None
+            assert s["hours_since_last_success"] is None
+        else:
+            # healthy/stale both require a real last_success_at, and
+            # the state must actually match the threshold it was
+            # computed against — not just be internally well-formed.
+            assert s["last_success_at"] is not None
+            assert s["hours_since_last_success"] is not None
+            if s["health"] == "healthy":
+                assert s["hours_since_last_success"] <= s["health_threshold_hours"]
+            else:
+                assert s["hours_since_last_success"] > s["health_threshold_hours"]
+
+    # sam_gov has a real ingestion history in this dev database (used
+    # throughout this project's own live-verification work) — assert
+    # its health fields reflect a REAL prior run, not just a
+    # plausible-looking shape.
+    sam_gov_entry = next(s for s in body["sources"] if s["code"] == "sam_gov")
+    assert sam_gov_entry["last_run_status"] in ("succeeded", "failed")
+    assert sam_gov_entry["last_run_at"] is not None
+
+
 def test_old_scheduler_status_endpoint_still_works_unchanged(client, auth_headers):
     """
     Regression check — the refactor to a registry-based scheduler

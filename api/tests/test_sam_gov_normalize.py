@@ -101,6 +101,21 @@ def test_normalize_real_example_1():
     assert result["ui_link"] == "https://beta.sam.gov/opp/5b345bbb7127b91a3ad577b203fc6f68/view"
 
 
+def test_normalize_constructs_ui_link_when_sam_gov_omits_it():
+    # Confirmed against live ingested data: SAM.gov's own `uiLink`
+    # field is absent on the large majority of real records (only
+    # ~10% carried it in a live check), with no pattern by notice
+    # type/stage — but every record that DID carry it followed this
+    # exact URL shape, keyed on noticeId (verified 44/44 against real
+    # stored data). So a genuinely-missing uiLink (actual None, not
+    # GSA's own docs' string "null" quirk — see the sparse-fields test
+    # below) gets this reconstructed rather than left blank.
+    record = dict(REAL_EXAMPLE_1)
+    record["uiLink"] = None
+    result = normalize_opportunity(record)
+    assert result["ui_link"] == "https://sam.gov/workspace/contract/opp/5b345bbb7127b91a3ad577b203fc6f68/view"
+
+
 def test_normalize_real_example_2_has_null_set_aside_matching_gsas_own_docs():
     # GSA's own documented example genuinely shows both fields as
     # null — this confirms the parser handles the "no restriction"
@@ -173,3 +188,102 @@ def test_title_whitespace_is_trimmed():
     result = normalize_opportunity(REAL_EXAMPLE_1)
     assert result["name"] == result["name"].strip()
     assert not result["name"].endswith(" ")
+
+
+# --- contact + address, added because this was previously a total gap ---
+
+def test_pointofcontact_is_extracted_preferring_primary():
+    raw = dict(REAL_EXAMPLE_1)
+    raw["pointOfContact"] = [
+        {"type": "secondary", "email": "second@gsa.gov", "phone": "1112223333", "fullName": "Sec Ondary"},
+        {"type": "primary", "email": "jesse.jones@gsa.gov", "phone": "2174941263", "fullName": "Jesse L. Jones"},
+    ]
+    r = normalize_opportunity(raw)
+    assert r["contact_name"] == "Jesse L. Jones"
+    assert r["contact_email"] == "jesse.jones@gsa.gov"
+    assert r["contact_phone"] == "2174941263"
+
+
+def test_single_contact_with_no_type_is_still_used():
+    raw = dict(REAL_EXAMPLE_1)
+    raw["pointOfContact"] = [{"email": "only@gsa.gov", "fullName": "Only One"}]
+    r = normalize_opportunity(raw)
+    assert r["contact_name"] == "Only One"
+
+
+def test_no_pointofcontact_gives_none_not_an_error():
+    raw = dict(REAL_EXAMPLE_1)
+    raw.pop("pointOfContact", None)
+    r = normalize_opportunity(raw)
+    assert r["contact_name"] is None
+    assert r["contact_email"] is None
+
+
+def test_office_address_is_used_not_place_of_performance():
+    """
+    officeAddress is the CONTRACTING OFFICE's address — where a
+    supplier would write to reach this office. placeOfPerformance is
+    a different field (where the awarded work happens, often a
+    different city entirely) and must never be used here.
+    """
+    raw = dict(REAL_EXAMPLE_1)
+    raw["officeAddress"] = {"zipcode": "60604", "city": "CHICAGO", "countryCode": "USA", "state": "IL"}
+    raw["placeOfPerformance"] = {
+        "streetAddress": "517 E Wisconsin Ave",
+        "city": {"code": "53000", "name": "Milwaukee"},
+        "state": {"code": "WI"}, "zip": "53202", "country": {"code": "USA"},
+    }
+    r = normalize_opportunity(raw)
+    assert "CHICAGO" in r["contact_address"]
+    assert "IL" in r["contact_address"]
+    assert "Milwaukee" not in r["contact_address"]
+
+
+def test_no_office_address_gives_none():
+    raw = dict(REAL_EXAMPLE_1)
+    raw.pop("officeAddress", None)
+    r = normalize_opportunity(raw)
+    assert r["contact_address"] is None
+
+
+# --- award winner extraction, added after Report Intel review ---------
+
+def test_award_winner_extracted_from_real_gsa_example_1():
+    assert normalize_opportunity(REAL_EXAMPLE_1)["winner_name"] == "D.G. Beyer, Inc."
+
+
+def test_award_object_present_but_no_awardee_key_at_all():
+    """
+    GSA's own 'Example 2' — award.date/number/amount populated but
+    the awardee sub-object is entirely ABSENT, not null. This is the
+    real shape that has to be handled, not a hypothetical edge case.
+    """
+    assert normalize_opportunity(REAL_EXAMPLE_2)["winner_name"] is None
+
+
+def test_no_award_object_at_all():
+    raw = dict(REAL_EXAMPLE_1)
+    raw.pop("award", None)
+    assert normalize_opportunity(raw)["winner_name"] is None
+
+
+def test_secondary_contact_email_is_captured():
+    raw = dict(REAL_EXAMPLE_1)
+    raw["pointOfContact"] = [
+        {"type": "primary", "email": "jesse.jones@gsa.gov", "phone": "2174941263", "fullName": "Jesse L. Jones"},
+        {"type": "secondary", "email": "backup@gsa.gov", "phone": "2175551234", "fullName": "Pat Backup"},
+    ]
+    r = normalize_opportunity(raw)
+    assert r["contact_email"] == "jesse.jones@gsa.gov"
+    assert r["contact_email_secondary"] == "backup@gsa.gov"
+
+
+def test_no_secondary_contact_gives_none_not_an_error():
+    r = normalize_opportunity(REAL_EXAMPLE_1)  # only one contact, no type "secondary"
+    assert r["contact_email_secondary"] is None
+
+
+def test_award_present_but_awardee_name_blank():
+    raw = dict(REAL_EXAMPLE_1)
+    raw["award"] = {"date": "2026-01-01", "awardee": {"ueiSAM": "X"}}
+    assert normalize_opportunity(raw)["winner_name"] is None

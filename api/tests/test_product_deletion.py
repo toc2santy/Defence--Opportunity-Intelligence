@@ -49,7 +49,7 @@ def test_tenant_cannot_delete_another_tenants_product(client, auth_headers):
     email_b = f"delete-test-b-{uuid.uuid4().hex[:8]}@example.com"
     signup_b = client.post(
         "/auth/signup",
-        json={"company_name": "Rival Corp", "email": email_b, "password": "another-real-password-1"},
+        json={"company_name": "Rival Corp", "full_name": "Test Admin", "email": email_b, "password": "another-real-password-1"},
     )
     token_b = signup_b.json()["access_token"]
 
@@ -84,7 +84,7 @@ def test_delete_product_with_existing_matched_opportunity_does_not_error(client,
         values (%s, %s, %s, %s, %s, %s)
         returning id
         """,
-        ("Test Fixture: Delete Cascade UAV Programme", "United States", "rfp_issued", source_id, "334511", fixture_ref),
+        ("Test Fixture: Delete Cascade UAV Programme", "United States", "rfp_issued", source_id, "336411", fixture_ref),
     )
 
     create_resp = client.post(

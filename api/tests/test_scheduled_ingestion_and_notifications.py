@@ -45,7 +45,7 @@ def test_new_opportunities_shows_matches_then_marks_them_seen(client, auth_heade
         values (%s, %s, %s, %s, %s, %s)
         returning id
         """,
-        ("Test Fixture: New Opportunity UAV Programme", "United States", "rfp_issued", source_id, "334511", fixture_ref),
+        ("Test Fixture: New Opportunity UAV Programme", "United States", "rfp_issued", source_id, "336411", fixture_ref),
     )
 
     create_resp = client.post(
@@ -81,7 +81,7 @@ def test_mark_seen_false_does_not_advance_the_checkpoint(client, auth_headers, d
         values (%s, %s, %s, %s, %s, %s)
         returning id
         """,
-        ("Test Fixture: Peek Without Marking Seen", "United States", "rfp_issued", source_id, "334511", fixture_ref),
+        ("Test Fixture: Peek Without Marking Seen", "United States", "rfp_issued", source_id, "336411", fixture_ref),
     )
 
     create_resp = client.post(

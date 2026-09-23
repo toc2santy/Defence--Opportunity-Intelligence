@@ -1,0 +1,31 @@
+-- ============================================================
+-- Session revocation (2026-09) — the gap this closes: JWTs in this
+-- project are fully stateless (30-minute expiry, ACCESS_TOKEN_MINUTES,
+-- no server-side session store), which means before this migration
+-- there was NO way to invalidate a token early. A password change,
+-- an admin blocking an account, or an admin triggering a password
+-- reset for a compromised account all left the OLD token(s) fully
+-- valid for up to 30 more minutes regardless — a real, accepted gap
+-- CLAUDE.md's own block/unblock entry already named honestly at the
+-- time ("an accepted, bounded window").
+--
+-- `session_version` is a plain integer, embedded as the `sv` claim in
+-- every access token at issuance (see create_access_token in
+-- main.py). get_current_user compares the token's `sv` against the
+-- CURRENT value in this column on every authenticated request —
+-- bumping this column by one instantly invalidates every
+-- already-issued token for that user, regardless of how much of
+-- their 30-minute expiry window was left. The same "token versioning"
+-- pattern most real systems use for revocation without a full
+-- server-side session table or a growing blocklist to prune.
+--
+-- Kept as ONE statement (see CLAUDE.md's "Isolated test stack" /
+-- migration 0045 entries for why this project's async alembic setup
+-- cannot execute a file with more than 2 top-level SQL statements).
+--
+-- Apply:
+--   docker compose exec -T db psql -U postgres -d doi < db/migrations/047_session_revocation.sql
+-- ============================================================
+
+alter table users
+    add column session_version integer not null default 1;

@@ -1,0 +1,11 @@
+# Daily wal-g base backup (Backup & DR Phase 2, 2026-09) — a base
+# backup is the starting point WAL replay works forward from; without
+# one made recently, point-in-time recovery has to replay an
+# unreasonably long WAL chain. 03:30 UTC, staggered 30 minutes after
+# Phase 1's pg_dump (03:00 UTC, app/main.py's scheduler).
+#
+# Env vars come from /etc/wal-g-env.sh, a dump of this container's
+# REAL environment written once at startup by entrypoint-with-cron.sh
+# — cron itself never sees docker-compose's injected env vars
+# otherwise, which would silently leave wal-g with no R2 credentials.
+30 3 * * * postgres . /etc/wal-g-env.sh && wal-g backup-push "$PGDATA" >> /var/log/wal-g-backup.log 2>&1
