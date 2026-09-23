@@ -2350,6 +2350,58 @@ a real `PATCH`/`GET` round trip AND a direct `psql` read of the raw
 column showing genuine ciphertext (`gAAAAABqs6PG...`, not
 `27AAAPL1234C1Z5`).
 
+### Email verification on signup (2026-09-23, migration 048)
+
+Closes a real gap: signup only ever checked that an email string
+matched `EmailStr`'s format, never that the signer-upper actually
+controlled that inbox. Added `users.email_verified` (defaults `true`
+at the column level — the two real pre-existing tenants, Syas Ai and
+Automation and M/s Alpha_Elsec, have been using their real inboxes for
+weeks and shouldn't retroactively become "unverified"; `/auth/signup`
+explicitly overrides this to `false` on every new INSERT going
+forward) plus a new `email_verification_tokens` table, same shape as
+the already-existing `password_reset_tokens` (raw token never stored,
+only its SHA-256 hash via the now-generic `_hash_token()` helper —
+renamed from `_hash_reset_token` to serve both tables).
+
+**Deliberately not a login gate** — an unverified account can still
+sign in and use the app immediately after signup; verification only
+confirms the inbox is reachable (password-reset delivery, security
+alerts), it doesn't unlock anything. This avoids the worse UX of
+blocking a brand-new user behind an email round-trip before they've
+seen the product at all, and matches how `/auth/forgot-password`
+already treats "email exists" (never a gate on functionality, just
+plumbing for reaching the account holder).
+
+New routes: `POST /auth/verify-email` (`{token}` → marks
+`email_verified = true`, rejects on reuse/expiry same as
+reset-password) and `POST /auth/resend-verification` (authenticated,
+no-op if already verified, otherwise reissues a fresh 24-hour token).
+`GET /auth/me` now also returns `email_verified` so the frontend can
+show real status without a separate call.
+
+Frontend: `boot()` handles a `?verify_email_token=...` link the same
+way it already handles `?reset_token=...`, branching on whether
+`tryRestoreSession()` found a live session (shows a small confirmation
+overlay if signed out, an info modal if already signed in) — a
+verification link can genuinely outlive the tab that requested it, so
+neither case is assumed. Company Profile gained a new "Email
+Verification" panel (status + "Resend Verification Email" button when
+unverified).
+
+Live-verified end to end via real HTTP calls against the dev API:
+fresh signup → `email_verified: false` confirmed via `/auth/me` →
+token captured from `send_email()`'s dev-mode console log → real
+`/auth/verify-email` call flips it to `true` → reusing the same token
+correctly 400s → `/auth/resend-verification` correctly no-ops on an
+already-verified account and correctly issues a fresh token on an
+unverified one. Frontend changes were syntax-checked (`node --check`
+on the extracted inline `<script>` blocks) and code-reviewed against
+the existing reset-password screen's pattern, but — same limitation
+noted throughout this session — this WSL environment has no working
+browser automation, so the actual click-through UI was not run in a
+real browser.
+
 ### A real, confirmed stored-XSS gap across the frontend, found on request (2026-09-23)
 
 Asked for directly as the next security item, and confirmed rather

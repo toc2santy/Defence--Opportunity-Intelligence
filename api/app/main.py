@@ -674,6 +674,11 @@ async def signup(request: Request, body: SignupIn):
         user_id = user_result.scalar_one()
 
         await session.execute(
+            text("update users set email_verified = false where id = :id"),
+            {"id": str(user_id)},
+        )
+
+        await session.execute(
             text("select set_config('app.current_tenant', :tid, true)"),
             {"tid": str(tenant_id)},
         )
@@ -681,7 +686,26 @@ async def signup(request: Request, body: SignupIn):
             session, str(tenant_id), str(user_id), "tenant.created_via_signup",
             "tenant", str(tenant_id), None, {"company_name": body.company_name},
         )
+
+        raw_token = secrets.token_urlsafe(32)
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=EMAIL_VERIFICATION_TOKEN_MINUTES)
+        await session.execute(
+            text("""
+                insert into email_verification_tokens (user_id, token_hash, expires_at)
+                values (:user_id, :token_hash, :expires_at)
+            """),
+            {"user_id": str(user_id), "token_hash": _hash_token(raw_token), "expires_at": expires_at},
+        )
         await session.commit()
+
+    verify_link = f"{FRONTEND_ORIGIN}/defence-opportunity-intelligence-app-v12.html?verify_email_token={raw_token}"
+    send_email(
+        body.email,
+        "Verify your Defence Opportunity Intelligence email",
+        f"Welcome! Please confirm this is your email address to finish setting up your account.\n\n"
+        f"Verify your email here (expires in {EMAIL_VERIFICATION_TOKEN_MINUTES // 60} hours):\n{verify_link}\n\n"
+        f"You can still sign in and use the app before verifying — this just confirms we can reach you.",
+    )
 
     token = create_access_token(str(user_id), str(tenant_id), "admin", session_version=1)
     return TokenOut(access_token=token)
@@ -838,6 +862,7 @@ async def login_mfa(request: Request, body: MfaLoginIn):
 #     the same "hash, never the secret" discipline as password_hash.
 # ---------------------------------------------------------------
 PASSWORD_RESET_TOKEN_MINUTES = 60
+EMAIL_VERIFICATION_TOKEN_MINUTES = 24 * 60
 
 
 class ForgotPasswordIn(BaseModel):
@@ -849,7 +874,15 @@ class ResetPasswordIn(BaseModel):
     new_password: str
 
 
-def _hash_reset_token(raw_token: str) -> str:
+def _hash_token(raw_token: str) -> str:
+    """
+    Generic "hash a random one-time token" helper — was named
+    `_hash_reset_token` until email verification (2026-09) needed the
+    exact same primitive for a different table
+    (`email_verification_tokens`, not `password_reset_tokens`).
+    Renamed rather than duplicated; the two call sites below are
+    updated to match.
+    """
     return hashlib.sha256(raw_token.encode()).hexdigest()
 
 
@@ -879,7 +912,7 @@ async def forgot_password(request: Request, body: ForgotPasswordIn):
                 insert into password_reset_tokens (user_id, token_hash, expires_at)
                 values (:user_id, :token_hash, :expires_at)
             """),
-            {"user_id": str(row.id), "token_hash": _hash_reset_token(raw_token), "expires_at": expires_at},
+            {"user_id": str(row.id), "token_hash": _hash_token(raw_token), "expires_at": expires_at},
         )
         await session.commit()
 
@@ -900,7 +933,7 @@ async def reset_password(request: Request, body: ResetPasswordIn):
     if len(body.new_password) < 10:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Password must be at least 10 characters")
 
-    token_hash = _hash_reset_token(body.token)
+    token_hash = _hash_token(body.token)
     async with SessionLocal() as session:
         result = await session.execute(
             text("""
@@ -936,6 +969,86 @@ async def reset_password(request: Request, body: ResetPasswordIn):
         await session.commit()
 
     return {"message": "Password updated — you can now sign in with your new password."}
+
+
+# ---------------------------------------------------------------
+# Email verification. Unlike password reset, an unverified account
+# can still sign in and use the app (see signup's comment) — this
+# just confirms the signer-upper controls the inbox they typed, so it
+# has no "always the same generic response" requirement the way
+# forgot-password does (there is no account-enumeration risk here:
+# the caller already has a real access_token/is-signed-in when they
+# hit /auth/verify-email or resend, since both take the email off the
+# authenticated user rather than an arbitrary body field).
+# ---------------------------------------------------------------
+class VerifyEmailIn(BaseModel):
+    token: str
+
+
+@app.post("/auth/verify-email")
+@limiter.limit(PASSWORD_RESET_RATE_LIMIT)
+async def verify_email(request: Request, body: VerifyEmailIn):
+    token_hash = _hash_token(body.token)
+    async with SessionLocal() as session:
+        result = await session.execute(
+            text("""
+                select id, user_id from email_verification_tokens
+                where token_hash = :token_hash
+                  and used_at is null
+                  and expires_at > now()
+            """),
+            {"token_hash": token_hash},
+        )
+        row = result.first()
+        if row is None:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "This verification link is invalid or has expired — request a new one")
+
+        await session.execute(
+            text("update users set email_verified = true where id = :id"),
+            {"id": str(row.user_id)},
+        )
+        await session.execute(
+            text("update email_verification_tokens set used_at = now() where id = :id"),
+            {"id": str(row.id)},
+        )
+        await session.commit()
+
+    return {"message": "Email verified."}
+
+
+@app.post("/auth/resend-verification")
+@limiter.limit(PASSWORD_RESET_RATE_LIMIT)
+async def resend_verification(request: Request, user: TokenPayload = Depends(get_current_user)):
+    async with SessionLocal() as session:
+        result = await session.execute(
+            text("select email, email_verified from users where id = :id"),
+            {"id": user.sub},
+        )
+        row = result.first()
+        if row is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+        if row.email_verified:
+            return {"message": "This email is already verified."}
+
+        raw_token = secrets.token_urlsafe(32)
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=EMAIL_VERIFICATION_TOKEN_MINUTES)
+        await session.execute(
+            text("""
+                insert into email_verification_tokens (user_id, token_hash, expires_at)
+                values (:user_id, :token_hash, :expires_at)
+            """),
+            {"user_id": user.sub, "token_hash": _hash_token(raw_token), "expires_at": expires_at},
+        )
+        await session.commit()
+
+    verify_link = f"{FRONTEND_ORIGIN}/defence-opportunity-intelligence-app-v12.html?verify_email_token={raw_token}"
+    send_email(
+        row.email,
+        "Verify your Defence Opportunity Intelligence email",
+        f"Verify your email here (expires in {EMAIL_VERIFICATION_TOKEN_MINUTES // 60} hours):\n{verify_link}\n\n"
+        f"You can still sign in and use the app before verifying — this just confirms we can reach you.",
+    )
+    return {"message": "Verification email sent."}
 
 
 # ---------------------------------------------------------------
@@ -1266,7 +1379,7 @@ async def platform_admin_trigger_password_reset(
                 insert into password_reset_tokens (user_id, token_hash, expires_at)
                 values (:user_id, :token_hash, :expires_at)
             """),
-            {"user_id": str(row.id), "token_hash": _hash_reset_token(raw_token), "expires_at": expires_at},
+            {"user_id": str(row.id), "token_hash": _hash_token(raw_token), "expires_at": expires_at},
         )
         # session_version + 1 (2026-09, migration 047) — an admin
         # triggering this is usually because the account may be
@@ -1458,7 +1571,7 @@ async def get_current_user_info(
         text("""
             select u.email, r.name as role_name, u.full_name, u.title, u.phone as user_phone,
                    t.name as company_name, t.plan, t.website, t.country, t.phone as company_phone,
-                   t.logo_data_url, u.is_platform_admin, u.mfa_enabled
+                   t.logo_data_url, u.is_platform_admin, u.mfa_enabled, u.email_verified
             from users u
             join roles r on r.id = u.role_id
             join tenants t on t.id = u.tenant_id
@@ -1486,6 +1599,7 @@ async def get_current_user_info(
         "logo_data_url": row.logo_data_url,
         "is_platform_admin": row.is_platform_admin,
         "mfa_enabled": row.mfa_enabled,
+        "email_verified": row.email_verified,
     }
 
 
