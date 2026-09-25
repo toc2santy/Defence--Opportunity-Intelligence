@@ -1181,7 +1181,7 @@ async def oidc_callback(request: Request, provider: str, code: str, state: str):
         # 1. Already-linked identity — the returning-user path.
         linked = (await session.execute(
             text("""
-                select u.id, u.tenant_id, r.name as role_name, u.session_version, u.is_active
+                select u.id, u.tenant_id, r.name as role_name, u.session_version, u.is_active, u.mfa_enabled
                 from oidc_identities oi
                 join users u on u.id = oi.user_id
                 join roles r on r.id = u.role_id
@@ -1193,6 +1193,18 @@ async def oidc_callback(request: Request, provider: str, code: str, state: str):
         if linked is not None:
             if not linked.is_active:
                 return RedirectResponse(f"{frontend_page}?oidc_error={quote('This account has been deactivated.')}", status_code=status.HTTP_302_FOUND)
+            # MFA is a per-account factor, not tied to HOW a login
+            # started — an SSO login that skipped straight to a real
+            # access_token for an MFA-enabled account would be a
+            # genuine bypass of that account's own second factor,
+            # found live (2026-09) while testing against a real
+            # MFA-enabled account: this must hand back the same
+            # short-lived MFA challenge /auth/login already issues,
+            # not a real token, and let the EXISTING
+            # /auth/login/mfa + its frontend screen finish the job.
+            if linked.mfa_enabled:
+                challenge_token = create_mfa_challenge_token(str(linked.id), str(linked.tenant_id), linked.role_name)
+                return RedirectResponse(f"{frontend_page}?oidc_mfa_challenge_token={challenge_token}", status_code=status.HTTP_302_FOUND)
             token = create_access_token(str(linked.id), str(linked.tenant_id), linked.role_name, session_version=linked.session_version)
             return RedirectResponse(f"{frontend_page}?oidc_token={token}", status_code=status.HTTP_302_FOUND)
 
@@ -1204,7 +1216,7 @@ async def oidc_callback(request: Request, provider: str, code: str, state: str):
         # this line.
         existing = (await session.execute(
             text("""
-                select u.id, u.tenant_id, r.name as role_name, u.session_version, u.is_active
+                select u.id, u.tenant_id, r.name as role_name, u.session_version, u.is_active, u.mfa_enabled
                 from users u join roles r on r.id = u.role_id
                 where lower(u.email) = lower(:email)
             """),
@@ -1227,6 +1239,12 @@ async def oidc_callback(request: Request, provider: str, code: str, state: str):
                 "user", str(existing.id), None, {"provider": provider},
             )
             await session.commit()
+            # Same MFA-must-still-apply rule as the already-linked
+            # path above — auto-linking proves the email, not the
+            # second factor this account itself requires.
+            if existing.mfa_enabled:
+                challenge_token = create_mfa_challenge_token(str(existing.id), str(existing.tenant_id), existing.role_name)
+                return RedirectResponse(f"{frontend_page}?oidc_mfa_challenge_token={challenge_token}", status_code=status.HTTP_302_FOUND)
             token = create_access_token(str(existing.id), str(existing.tenant_id), existing.role_name, session_version=existing.session_version)
             return RedirectResponse(f"{frontend_page}?oidc_token={token}", status_code=status.HTTP_302_FOUND)
 

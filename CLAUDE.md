@@ -2350,6 +2350,39 @@ a real `PATCH`/`GET` round trip AND a direct `psql` read of the raw
 column showing genuine ciphertext (`gAAAAABqs6PG...`, not
 `27AAAPL1234C1Z5`).
 
+### A real MFA-bypass gap in SSO, found testing against a REAL account with MFA enabled (2026-09-25)
+
+The isolated-stack testing below (fake-oidc-test) never had an
+MFA-enabled test account, so this gap wasn't caught until the
+platform owner tested "Continue with Google" against their own real,
+already-MFA-enabled account (`syasaiandautomation@gmail.com`): the
+original `oidc_callback` handed back a real `access_token` straight
+away for BOTH the already-linked-identity path and the auto-link
+path, with no check of `users.mfa_enabled` at all. Auto-linking by a
+provider-verified email proves the inbox, never the account's own
+second factor — this was a genuine, real bypass of MFA via SSO,
+exactly the kind of gap the encryption-key-rotation/retention/IDOR
+work earlier this session exists to catch before it reaches real use.
+
+Fixed by checking `mfa_enabled` in both queries; an MFA-enabled
+account now gets the exact same short-lived `mfa_challenge_token`
+`/auth/login` already issues (via the existing `create_mfa_challenge_
+token`), redirected to the frontend as `?oidc_mfa_challenge_token=...`
+— the frontend hands this straight to the SAME `renderMfaLoginScreen`
+a password login's own MFA step already uses, so the second factor is
+completed through one single, already-tested code path regardless of
+which door (password or SSO) a login started from. 2 new regression
+tests cover both the first-auto-link case and a returning linked
+login where MFA was enabled AFTER the identity was already linked.
+
+**A concrete reminder of why real-account testing matters even after
+thorough isolated-stack coverage**: 11 tests and multiple attack-path
+checks (nonce, state, unverified email) had already passed clean
+before this was found — none of them exercised an MFA-enabled
+account, because the fake-oidc-test flow never needed one to prove
+the OIDC mechanics themselves. The gap was invisible to that suite by
+construction, not because the suite was run carelessly.
+
 ### SSO via OIDC — "Continue with Google/Microsoft" (2026-09-25, migration 050)
 
 Additive to email+password login, never replacing it — every account

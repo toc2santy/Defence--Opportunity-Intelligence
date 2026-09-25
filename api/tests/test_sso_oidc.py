@@ -249,3 +249,39 @@ def test_an_existing_password_account_auto_links_on_first_sso_login_with_the_sam
 def test_complete_signup_rejects_a_reused_or_forged_token(client):
     resp = client.post("/auth/oidc/complete-signup", json={"signup_token": "not-a-real-token", "company_name": "Whatever Co"})
     assert resp.status_code == 400
+
+
+def test_mfa_enabled_account_gets_a_challenge_not_a_real_token_on_auto_link(client, new_tenant, db_cursor):
+    """
+    A real bug found live (2026-09): the first version handed back a
+    real access_token straight away for an SSO login that auto-linked
+    to an existing account, with no regard for whether that account
+    had its OWN MFA enabled — auto-linking by email proves the inbox,
+    never the second factor. Directly flips mfa_enabled here (not a
+    full TOTP enrollment) since this test only needs to prove the
+    callback's own branching, not re-test /auth/login/mfa itself
+    (already covered elsewhere).
+    """
+    db_cursor.execute("update users set mfa_enabled = true where email = %s", (new_tenant["email"],))
+
+    code, state = _run_authorize(client, fake_email=new_tenant["email"], fake_name="MFA Account")
+    resp = _hit_callback(client, code, state)
+    assert resp.status_code == 302
+    location = resp.headers["location"]
+    assert _query_param(location, "oidc_token") is None, f"MFA-enabled account got a real token directly: {location}"
+    challenge_token = _query_param(location, "oidc_mfa_challenge_token")
+    assert challenge_token is not None
+
+
+def test_mfa_enabled_account_gets_a_challenge_on_a_returning_linked_login_too(client, new_tenant, db_cursor):
+    code, state = _run_authorize(client, fake_email=new_tenant["email"], fake_name="MFA Account")
+    first = _hit_callback(client, code, state)
+    assert _query_param(first.headers["location"], "oidc_token") is not None  # not yet MFA-enabled at first link
+
+    db_cursor.execute("update users set mfa_enabled = true where email = %s", (new_tenant["email"],))
+
+    code2, state2 = _run_authorize(client, fake_email=new_tenant["email"], fake_name="MFA Account")
+    second = _hit_callback(client, code2, state2)
+    location = second.headers["location"]
+    assert _query_param(location, "oidc_token") is None
+    assert _query_param(location, "oidc_mfa_challenge_token") is not None
