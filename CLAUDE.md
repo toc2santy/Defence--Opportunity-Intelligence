@@ -2350,6 +2350,66 @@ a real `PATCH`/`GET` round trip AND a direct `psql` read of the raw
 column showing genuine ciphertext (`gAAAAABqs6PG...`, not
 `27AAAPL1234C1Z5`).
 
+### Data retention policy (2026-09-25, migration 049) — and a real RLS bug found while building it
+
+Closes a real gap: `audit_log` and the one-time auth token tables
+(`password_reset_tokens`, `email_verification_tokens`) had grown
+since day one with no defined lifetime and nothing that ever deleted
+an old row — "how long do we keep X" had no enforced answer anywhere
+in this codebase. New `app/retention.py`: `AUDIT_LOG_RETENTION_DAYS`
+(default 730 days — a compliance/security record, kept long on
+purpose) and `TOKEN_RETENTION_DAYS` (default 30 days — these tokens
+only matter for minutes/hours; the 30-day buffer past expiry exists
+purely for incident-forensics, not because the token still does
+anything). Only EXPIRED-OR-USED token rows are ever purge targets —
+a still-live, unused token is never touched regardless of age.
+
+Reuses `backup_jobs` (see migration 049's own header) for run
+tracking via a THIRD `job_type` value, `'retention_purge'` — the same
+reasoning migration 044 already gives for reusing it for restore
+drills: one job-tracking table means `job_health()` (renamed from
+`_job_health` now that a third module needs it) works for this with
+zero changes, and `GET /admin/backup/status` now returns all three
+health checks together. New `POST /admin/retention/run` (manual
+trigger, platform-admin only, mirrors `/admin/backup/run`), scheduled
+daily at 03:30 UTC (30 minutes after the nightly `pg_dump`, so a
+purge never removes data before that same night's backup had a
+chance to capture it).
+
+**A real bug found live while building this, the exact same class
+already documented in app/backup.py's own restore-drill comment**:
+the first version ran the `audit_log` delete through the request's
+own RLS-scoped connection (`get_tenant_session`) — and `audit_log`
+genuinely carries RLS (`tenant_isolation_audit_log`), unlike
+`backup_jobs`/`password_reset_tokens`/`email_verification_tokens`,
+which don't. That silently scoped the "purge everything platform-
+wide older than 730 days" delete down to only the triggering platform
+admin's OWN tenant, every time — confirmed live: two seeded 800/750-
+day-old rows were not deleted at all on the first real run. Fixed by
+giving `app/retention.py` its own dedicated privileged connection on
+`ALEMBIC_DATABASE_URL` (same `postgres` role `app/backup.py`'s own
+`pg_dump` already trusts, same justification) specifically for the
+`audit_log` delete — `backup_jobs`/token deletes stay on the normal
+app connection since those tables have no RLS to bypass. A second,
+smaller bug in the same fix pass: the `except` block's own "mark job
+failed" update wasn't preceded by a `session.rollback()`, so a real
+failure inside the purge was masked by a second, more confusing
+"current transaction is aborted" error instead of the real one —
+fixed the same way, `await session.rollback()` before the failure
+write.
+
+Live-verified end to end on the isolated test stack: seeded a
+cross-tenant old `audit_log` row (a DIFFERENT tenant than the
+triggering platform admin's own — specifically to catch the RLS bug
+above, which a same-tenant-only test would have missed) plus an old
+expired token, confirmed both purged and a recent/still-relevant row
+of each kind survived untouched, confirmed `GET /admin/backup/status`
+reflects a healthy `retention_purge` entry. 3 new regression tests
+(`tests/test_retention_policy.py`). Full suite re-run clean (628
+passed — 3 more than the previous baseline, all new retention tests —
+same pre-existing data-dependent failures as any fresh install)
+before deploying to the real dev API.
+
 ### Rate limiting gap closed: /auth/change-password and /auth/mfa/disable (2026-09-25)
 
 Found in a follow-up sweep after the SQL-injection/IDOR audit below:

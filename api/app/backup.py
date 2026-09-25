@@ -404,8 +404,8 @@ async def run_restore_drill(session: AsyncSession, triggered_by: str = "schedule
             os.remove(dump_path)
 
 
-async def _job_health(session: AsyncSession, job_type: str, threshold_hours: int) -> dict:
-    """Shared by backup_health and restore_drill_health (Phase 4) — same query, filtered to one job_type, so the two health checks can never structurally drift apart."""
+async def job_health(session: AsyncSession, job_type: str, threshold_hours: int) -> dict:
+    """Shared by backup_health, restore_drill_health (Phase 4), and app.retention.retention_health (2026-09) — same query, filtered to one job_type, so all three health checks can never structurally drift apart. Was private (`_job_health`) until retention needed it too; renamed rather than duplicated."""
     row = (await session.execute(
         text("""
             select max(finished_at) filter (where status = 'succeeded') as last_success_at,
@@ -449,7 +449,7 @@ async def backup_health(session: AsyncSession) -> dict:
     """
     # One daily backup expected every 24h — 48h tolerates one missed
     # run before flagging.
-    health = await _job_health(session, "backup", threshold_hours=48)
+    health = await job_health(session, "backup", threshold_hours=48)
     return {
         "configured": all((R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, BACKUP_ENCRYPTION_KEY)),
         **health,
@@ -467,7 +467,7 @@ async def restore_drill_health(session: AsyncSession) -> dict:
     """
     # One drill expected every 7 days (WEEKLY_RESTORE_DRILL below) —
     # 240h (10 days) tolerates one missed run before flagging.
-    health = await _job_health(session, "restore_drill", threshold_hours=240)
+    health = await job_health(session, "restore_drill", threshold_hours=240)
     return {
         "configured": all((R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, BACKUP_ENCRYPTION_KEY)),
         **health,

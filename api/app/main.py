@@ -52,6 +52,7 @@ from app.backup import (
     run_backup, backup_health, BackupConfigError,
     run_restore_drill, restore_drill_health, check_staleness_and_alert,
 )
+from app.retention import run_retention_purge, retention_health
 from app.oem_intelligence import list_oems, get_oem_detail
 from app.next_best_action import suggest_next_action
 from app.procurement_intelligence import get_procurement_funnel
@@ -361,6 +362,17 @@ async def _run_scheduled_staleness_check():
             print(f"[scheduled staleness check] failed: {e}")
 
 
+async def _run_scheduled_retention_purge():
+    # No config-gate like backup's own quiet-skip (app.retention has
+    # no external credentials to be missing) — this always runs.
+    async with SessionLocal() as session:
+        try:
+            result = await run_retention_purge(session, triggered_by="scheduler")
+            print(f"[scheduled retention purge] {result}")
+        except Exception as e:
+            print(f"[scheduled retention purge] failed: {e}")
+
+
 @app.on_event("startup")
 async def start_scheduler():
     await _reap_orphaned_ingestion_jobs()
@@ -411,6 +423,17 @@ async def start_scheduler():
         hour=6,
         minute=0,
         id="scheduled_dr_staleness_check",
+        replace_existing=True,
+    )
+    # 03:30 UTC — after the nightly pg_dump (03:00) has already run,
+    # so an old audit_log/token row is never purged before that same
+    # data had its chance to be captured in that night's backup.
+    scheduler.add_job(
+        _run_scheduled_retention_purge,
+        "cron",
+        hour=3,
+        minute=30,
+        id="scheduled_retention_purge",
         replace_existing=True,
     )
     scheduler.start()
@@ -2780,14 +2803,16 @@ async def get_backup_status(
     user: TokenPayload = Depends(require_platform_admin),
     session: AsyncSession = Depends(get_tenant_session),
 ):
-    # Both health checks together (Phase 4, 2026-09) — "we uploaded a
-    # backup recently" and "we proved a backup can actually be
-    # restored" are two different claims (see restore_drill_health's
-    # own docstring), so one status response answers both rather than
-    # requiring a second round trip to notice the drill side is stale.
+    # All three health checks together (Phase 4, 2026-09; retention
+    # added 2026-09-25) — "we uploaded a backup recently", "we proved
+    # a backup can actually be restored", and "old data is actually
+    # being purged on schedule" are three different claims, so one
+    # status response answers all three rather than requiring a
+    # separate round trip to notice any one side is stale.
     return {
         "backup": await backup_health(session),
         "restore_drill": await restore_drill_health(session),
+        "retention_purge": await retention_health(session),
     }
 
 
@@ -2816,6 +2841,18 @@ async def trigger_restore_drill(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
     except Exception as e:
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, f"Restore drill failed: {e}")
+
+
+@app.post("/admin/retention/run")
+async def trigger_retention_purge(
+    user: TokenPayload = Depends(require_platform_admin),
+    session: AsyncSession = Depends(get_tenant_session),
+):
+    """Manual on-demand version of the daily scheduled retention purge (2026-09) — see app/retention.py's own module docstring for the actual retention windows."""
+    try:
+        return await run_retention_purge(session, triggered_by="manual")
+    except Exception as e:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, f"Retention purge failed: {e}")
 
 
 # ---------------------------------------------------------------
