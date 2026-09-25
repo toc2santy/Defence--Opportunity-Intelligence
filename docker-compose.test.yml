@@ -31,6 +31,20 @@
 # ============================================================
 
 services:
+  fake-oidc-test:
+    # A real, second OIDC provider (see api/tests/fake_oidc_provider.py's
+    # own docstring) — used ONLY by this isolated stack, to prove
+    # app/oidc.py's login flow against genuine discovery/code-exchange/
+    # JWKS-verified-RS256 mechanics without needing real Google/Microsoft
+    # developer-console credentials. Never runs alongside the real
+    # docker-compose.yml stack.
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    command: ["uvicorn", "tests.fake_oidc_provider:app", "--host", "0.0.0.0", "--port", "9100"]
+    ports:
+      - "9100:9100"
+
   db-test:
     image: postgres:16
     environment:
@@ -70,6 +84,22 @@ services:
       MFA_ENCRYPTION_KEY: UCsoOWOAcbjf0PaVOqeQUAEDNzQT2q0bZRcchC5slHE=
       PII_ENCRYPTION_KEY: Yi8E1v52oJeAJi2dY15BHMl3OIyfhjozLeD54JpehRI=
       FRONTEND_ORIGIN: http://localhost:5500
+      # This container's own address as OTHER containers on this
+      # docker network reach it — matters for SSO (2026-09): the
+      # redirect_uri app/oidc.py builds (API_BASE_URL + /auth/oidc/...)
+      # is what fake-oidc-test's /authorize redirects back to, and
+      # that has to be a real reachable address on this network, not
+      # localhost (which inside fake-oidc-test's own container would
+      # mean itself, not api-test).
+      API_BASE_URL: http://api-test:8000
+      # Test-only provider slug "testprovider" — see
+      # api/tests/fake_oidc_provider.py. client_id/secret are
+      # meaningless placeholders (the fake provider doesn't validate
+      # secrets beyond client_id/redirect_uri matching what /authorize
+      # issued the code for), never real credentials.
+      OIDC_TESTPROVIDER_CLIENT_ID: test-client-id
+      OIDC_TESTPROVIDER_CLIENT_SECRET: test-client-secret
+      OIDC_TESTPROVIDER_ISSUER: http://fake-oidc-test:9100
       # Deliberately generous — this is a throwaway stack exercised
       # only by the local test suite, not the rate limits a real
       # deployment needs; a tight limit here just makes repeated test
@@ -91,6 +121,8 @@ services:
     depends_on:
       db-test:
         condition: service_healthy
+      fake-oidc-test:
+        condition: service_started
 
 volumes:
   doi_test_pgdata:

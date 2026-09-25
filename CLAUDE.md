@@ -2350,6 +2350,90 @@ a real `PATCH`/`GET` round trip AND a direct `psql` read of the raw
 column showing genuine ciphertext (`gAAAAABqs6PG...`, not
 `27AAAPL1234C1Z5`).
 
+### SSO via OIDC — "Continue with Google/Microsoft" (2026-09-25, migration 050)
+
+Additive to email+password login, never replacing it — every account
+still works with a password regardless of whether SSO is configured.
+New `app/oidc.py` (pure logic + HTTP calls, no DB — same split as
+app/mfa.py) supports ANY standard OIDC provider config-driven via
+three env vars per provider slug (`OIDC_{SLUG}_CLIENT_ID/SECRET/
+ISSUER`), not hardcoded to Google/Microsoft — a provider's own
+`/.well-known/openid-configuration` is fetched live rather than
+hardcoding its authorization/token/jwks endpoints.
+
+Security properties (standard OAuth 2.1/OIDC practice, not invented
+here): PKCE (S256) even though this is a confidential client; `state`
+is a short-lived JWT signed with this app's own `JWT_SECRET` (carrying
+the PKCE `code_verifier` + `nonce` + provider slug) rather than
+server-side session storage — this app has no session store anywhere
+else, every other flow here is already a stateless JWT; `nonce` is
+checked against the id_token's own claim (OIDC's specific replay
+protection, separate from `state`); the id_token's signature is
+verified against the provider's live JWKS (fetched fresh, never
+pinned), with `iss`/`aud`/`exp` all checked before any claim is
+trusted; an `email_verified: false` claim is rejected outright — an
+unverified email can never be used to sign in or auto-link.
+
+**Identity model** (new `oidc_identities` table, not columns bolted
+onto `users`): `(provider, subject)` is the real, permanent identity —
+`subject` is OIDC's own never-reused per-account identifier; `email`
+is only ever consulted at FIRST-link time, never trusted again after
+that for matching, so a changed email at the provider can't silently
+re-point who a future login authenticates as. Three paths on
+`GET /auth/oidc/{provider}/callback`:
+1. **Known `(provider, subject)`** — the returning-user path, a real
+   `access_token` straight away.
+2. **New `(provider, subject)` but an existing password account with
+   the SAME verified email** — auto-links (inserts the
+   `oidc_identities` row, logs `user.oidc_identity_linked`) and logs
+   in directly. Safe specifically because the email was already
+   confirmed provider-verified above — an unverified claim could never
+   reach this branch.
+3. **Genuinely new** — this platform is multi-tenant B2B, so a
+   `company_name` is the one thing no OIDC provider can ever supply.
+   The browser gets a short-lived (15 min) signup token instead of an
+   access_token; `POST /auth/oidc/complete-signup` (company_name +
+   that token) creates the tenant exactly like `/auth/signup` does
+   (`email_verified = true` immediately — the provider already proved
+   it), then issues the real token. An OIDC-only account still gets a
+   real (random, never-shown) `password_hash` row — schema requires
+   NOT NULL, and a random Argon2 hash simply never matches any real
+   password attempt, so `/auth/login` staying open for that email
+   later is a safe no-op, not a bypass.
+
+New `API_BASE_URL` config (this API's own public address — a
+provider's redirect_uri must exactly match what's registered with it)
+— added to `docker-compose.yml` explicitly, the same "listed here or
+Compose silently never passes it through" rule this file's own header
+comment already documents for every other var (and a rule
+`AUDIT_LOG_RETENTION_DAYS`/`TOKEN_RETENTION_DAYS` from the retention
+entry above had ALSO missed — fixed here too, same pass).
+
+**Live-verified end to end against a REAL second OIDC provider**, not
+a mock of this app's own code: `api/tests/fake_oidc_provider.py`, a
+genuine standalone service implementing real discovery/`/authorize`/
+`/token`/JWKS endpoints with a real locally-generated RSA keypair
+signing real RS256 id_tokens — wired into `docker-compose.test.yml` as
+`fake-oidc-test`, provider slug `testprovider`. Every path confirmed
+live: brand-new signup (real `oidc_signup_token` → real tenant →
+real verified account), a returning linked identity (same `sub` both
+times, no duplicate tenant), an existing password account auto-
+linking on first SSO use (confirmed via `oidc_identities`, and the
+SAME user_id reachable either via SSO or the original password
+afterward), unverified-email rejection, nonce-mismatch rejection,
+tampered/wrong-provider state rejection, unconfigured-provider 400.
+11 new regression tests (`tests/test_sso_oidc.py`) reuse this same
+real-provider flow (with a documented host-vs-docker-network
+addressing workaround, explained in that file's own header) rather
+than mocking any part of the OIDC mechanics away. Full suite re-run
+clean (636 passed) before deploying to the real dev API — confirmed
+`GET /auth/oidc/google/login` on the real dev API correctly 400s
+("not configured") since no real Google/Microsoft credentials exist
+yet; obtaining those (a Google Cloud Console / Microsoft Entra app
+registration, both needing the account owner's own browser session)
+is a manual step outside what this session could do — full setup
+instructions are in `.env.example`.
+
 ### Data retention policy (2026-09-25, migration 049) — and a real RLS bug found while building it
 
 Closes a real gap: `audit_log` and the one-time auth token tables

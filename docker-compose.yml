@@ -85,6 +85,11 @@ services:
       # .env alone does nothing; Compose only passes a variable into
       # the container if it's explicitly listed here too.
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5500}
+      # This API's own public address — SSO (2026-09, see app/oidc.py)
+      # needs it to build a redirect_uri an OIDC provider redirects
+      # back to. Same "listed here or Compose won't pass it through"
+      # rule as every other var on this page.
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:8000}
       # Forgot Password email — same "listed here or Compose won't
       # pass it through" gotcha as FRONTEND_ORIGIN above. Blank
       # SMTP_HOST is fine: the reset link just gets logged instead of
@@ -123,6 +128,24 @@ services:
       # .env.example for setup) — a DEDICATED key, same "listed here
       # or it silently never reaches the container" rule.
       PII_ENCRYPTION_KEY: ${PII_ENCRYPTION_KEY:-}
+      # Data retention (2026-09, see app/retention.py) — safe code
+      # defaults (730/30 days) apply either way; listed here so a
+      # deployment CAN override them via .env, same rule as everything
+      # else on this page.
+      AUDIT_LOG_RETENTION_DAYS: ${AUDIT_LOG_RETENTION_DAYS:-730}
+      TOKEN_RETENTION_DAYS: ${TOKEN_RETENTION_DAYS:-30}
+      # SSO via OIDC (2026-09, see app/oidc.py + .env.example for real
+      # setup steps). Blank by default — "Continue with Google/
+      # Microsoft" on the login screen will 400 with a clear
+      # unconfigured-provider error until these are filled in, the
+      # same graceful-until-configured pattern SAM_GOV_API_KEY/R2_*
+      # already use above.
+      OIDC_GOOGLE_CLIENT_ID: ${OIDC_GOOGLE_CLIENT_ID:-}
+      OIDC_GOOGLE_CLIENT_SECRET: ${OIDC_GOOGLE_CLIENT_SECRET:-}
+      OIDC_GOOGLE_ISSUER: ${OIDC_GOOGLE_ISSUER:-https://accounts.google.com}
+      OIDC_MICROSOFT_CLIENT_ID: ${OIDC_MICROSOFT_CLIENT_ID:-}
+      OIDC_MICROSOFT_CLIENT_SECRET: ${OIDC_MICROSOFT_CLIENT_SECRET:-}
+      OIDC_MICROSOFT_ISSUER: ${OIDC_MICROSOFT_ISSUER:-https://login.microsoftonline.com/common/v2.0}
     ports:
       - "8000:8000"
     depends_on:

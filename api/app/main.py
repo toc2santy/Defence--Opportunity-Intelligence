@@ -9,6 +9,7 @@ beyond /healthz.
 """
 
 import hashlib
+import httpx
 import json
 import os
 import re
@@ -21,7 +22,9 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from urllib.parse import urlencode, quote
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
@@ -53,6 +56,11 @@ from app.backup import (
     run_restore_drill, restore_drill_health, check_staleness_and_alert,
 )
 from app.retention import run_retention_purge, retention_health
+from app.oidc import (
+    get_provider_config, discover_provider, make_pkce_pair, make_state_token,
+    decode_state_token, exchange_code_for_tokens, verify_id_token,
+    OidcConfigError, OidcVerificationError,
+)
 from app.oem_intelligence import list_oems, get_oem_detail
 from app.next_best_action import suggest_next_action
 from app.procurement_intelligence import get_procurement_funnel
@@ -146,6 +154,13 @@ app.add_middleware(SlowAPIMiddleware)
 # credentials (the JWT in the Authorization header) are involved.
 # ---------------------------------------------------------------
 FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "http://localhost:5500")
+# This API's own public base URL — needed for SSO (2026-09): the
+# redirect_uri an OIDC provider sends a user back to after login must
+# be this API's own /auth/oidc/{provider}/callback, and must exactly
+# match what's registered with that provider (Google/Microsoft both
+# reject a mismatched redirect_uri outright, a real anti-hijack
+# control on their side, not this app's own).
+API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
 app.add_middleware(
     CORSMiddleware,
     # "null" is not a wildcard — it's the LITERAL Origin header a
@@ -1072,6 +1087,237 @@ async def resend_verification(request: Request, user: TokenPayload = Depends(get
         f"You can still sign in and use the app before verifying — this just confirms we can reach you.",
     )
     return {"message": "Verification email sent."}
+
+
+# ---------------------------------------------------------------
+# SSO via OIDC (2026-09) — "Sign in with Google/Microsoft/any OIDC
+# provider", additive to email+password, never replacing it. Full
+# design rationale (PKCE, signed-state instead of server sessions,
+# why (provider, subject) not email is the real identity) lives in
+# app/oidc.py's own module docstring — this is thin orchestration
+# only, the same split every other feature in this file follows.
+#
+# Three-step flow, mirroring the shape OAuth/OIDC always takes:
+#   1. GET  /auth/oidc/{provider}/login    — redirects to the real
+#      provider's own authorization endpoint.
+#   2. GET  /auth/oidc/{provider}/callback — the provider redirects
+#      the browser back here with a code; exchanged + verified, then
+#      EITHER a known identity logs straight in, OR (first time this
+#      email has ever been seen) the browser is sent to the frontend
+#      with a short-lived signup token instead of a real access_token.
+#   3. POST /auth/oidc/complete-signup     — only reached for a truly
+#      new account: takes that signup token + a company_name (the one
+#      thing an OIDC provider can never supply, this being a
+#      multi-tenant B2B platform) and creates the tenant exactly like
+#      /auth/signup does, then issues a real access_token.
+# ---------------------------------------------------------------
+OIDC_SIGNUP_TOKEN_MINUTES = 15
+
+
+@app.get("/auth/oidc/{provider}/login")
+@limiter.limit(LOGIN_RATE_LIMIT)
+async def oidc_login(request: Request, provider: str):
+    try:
+        config = get_provider_config(provider)
+        discovery = await discover_provider(config["issuer"])
+    except OidcConfigError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+    except httpx.HTTPError as e:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Could not reach SSO provider '{provider}': {e}")
+
+    code_verifier, code_challenge = make_pkce_pair()
+    nonce = secrets.token_urlsafe(24)
+    state = make_state_token(JWT_SECRET, provider, code_verifier, nonce, redirect_after=None)
+    redirect_uri = f"{API_BASE_URL}/auth/oidc/{provider}/callback"
+
+    params = {
+        "response_type": "code",
+        "client_id": config["client_id"],
+        "redirect_uri": redirect_uri,
+        "scope": "openid email profile",
+        "state": state,
+        "nonce": nonce,
+        "code_challenge": code_challenge,
+        "code_challenge_method": "S256",
+    }
+    auth_url = f"{discovery['authorization_endpoint']}?{urlencode(params)}"
+    return RedirectResponse(auth_url, status_code=status.HTTP_302_FOUND)
+
+
+@app.get("/auth/oidc/{provider}/callback")
+@limiter.limit(LOGIN_RATE_LIMIT)
+async def oidc_callback(request: Request, provider: str, code: str, state: str):
+    frontend_page = f"{FRONTEND_ORIGIN}/defence-opportunity-intelligence-app-v12.html"
+    try:
+        state_payload = decode_state_token(JWT_SECRET, state)
+        if state_payload["provider"] != provider:
+            raise OidcVerificationError("SSO state does not match the callback provider")
+
+        config = get_provider_config(provider)
+        discovery = await discover_provider(config["issuer"])
+        redirect_uri = f"{API_BASE_URL}/auth/oidc/{provider}/callback"
+
+        tokens = await exchange_code_for_tokens(
+            discovery["token_endpoint"], config["client_id"], config["client_secret"],
+            code, redirect_uri, state_payload["code_verifier"],
+        )
+        id_token = tokens.get("id_token")
+        if not id_token:
+            raise OidcVerificationError("Provider response had no id_token")
+
+        claims = verify_id_token(
+            id_token, discovery["jwks_uri"], discovery["issuer"], config["client_id"], state_payload["nonce"],
+        )
+    except (OidcConfigError, OidcVerificationError) as e:
+        return RedirectResponse(f"{frontend_page}?oidc_error={quote(str(e))}", status_code=status.HTTP_302_FOUND)
+    except httpx.HTTPError as e:
+        return RedirectResponse(f"{frontend_page}?oidc_error={quote(f'Could not reach SSO provider: {e}')}", status_code=status.HTTP_302_FOUND)
+
+    subject = claims["sub"]
+    email = claims["email"]
+    name = claims.get("name") or email
+
+    async with SessionLocal() as session:
+        # 1. Already-linked identity — the returning-user path.
+        linked = (await session.execute(
+            text("""
+                select u.id, u.tenant_id, r.name as role_name, u.session_version, u.is_active
+                from oidc_identities oi
+                join users u on u.id = oi.user_id
+                join roles r on r.id = u.role_id
+                where oi.provider = :provider and oi.subject = :subject
+            """),
+            {"provider": provider, "subject": subject},
+        )).first()
+
+        if linked is not None:
+            if not linked.is_active:
+                return RedirectResponse(f"{frontend_page}?oidc_error={quote('This account has been deactivated.')}", status_code=status.HTTP_302_FOUND)
+            token = create_access_token(str(linked.id), str(linked.tenant_id), linked.role_name, session_version=linked.session_version)
+            return RedirectResponse(f"{frontend_page}?oidc_token={token}", status_code=status.HTTP_302_FOUND)
+
+        # 2. No linked identity yet, but an existing password account
+        # uses this same PROVIDER-VERIFIED email — auto-link rather
+        # than force a redundant second signup. Safe specifically
+        # because verify_id_token already rejected an unverified
+        # email claim above; an unverified email could never reach
+        # this line.
+        existing = (await session.execute(
+            text("""
+                select u.id, u.tenant_id, r.name as role_name, u.session_version, u.is_active
+                from users u join roles r on r.id = u.role_id
+                where lower(u.email) = lower(:email)
+            """),
+            {"email": email},
+        )).first()
+
+        if existing is not None:
+            if not existing.is_active:
+                return RedirectResponse(f"{frontend_page}?oidc_error={quote('This account has been deactivated.')}", status_code=status.HTTP_302_FOUND)
+            await session.execute(
+                text("insert into oidc_identities (user_id, provider, subject, email) values (:uid, :provider, :subject, :email)"),
+                {"uid": str(existing.id), "provider": provider, "subject": subject, "email": email},
+            )
+            await session.execute(
+                text("select set_config('app.current_tenant', :tid, true)"),
+                {"tid": str(existing.tenant_id)},
+            )
+            await write_audit_log(
+                session, str(existing.tenant_id), str(existing.id), "user.oidc_identity_linked",
+                "user", str(existing.id), None, {"provider": provider},
+            )
+            await session.commit()
+            token = create_access_token(str(existing.id), str(existing.tenant_id), existing.role_name, session_version=existing.session_version)
+            return RedirectResponse(f"{frontend_page}?oidc_token={token}", status_code=status.HTTP_302_FOUND)
+
+    # 3. Genuinely new — this platform has no tenant for this person
+    # yet, and only a human can supply a company_name. Hand the
+    # browser a short-lived signup token instead of an access_token.
+    signup_payload = {
+        "provider": provider, "subject": subject, "email": email, "name": name,
+        "purpose": "oidc_signup",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=OIDC_SIGNUP_TOKEN_MINUTES),
+    }
+    signup_token = jwt.encode(signup_payload, JWT_SECRET, algorithm=JWT_ALGO)
+    return RedirectResponse(
+        f"{frontend_page}?oidc_signup_token={signup_token}&oidc_email={quote(email)}&oidc_name={quote(name)}",
+        status_code=status.HTTP_302_FOUND,
+    )
+
+
+class OidcCompleteSignupIn(BaseModel):
+    signup_token: str
+    company_name: str
+    full_name: Optional[str] = None
+
+
+@app.post("/auth/oidc/complete-signup", response_model=TokenOut, status_code=201)
+@limiter.limit(SIGNUP_RATE_LIMIT)
+async def oidc_complete_signup(request: Request, body: OidcCompleteSignupIn):
+    try:
+        payload = jwt.decode(body.signup_token, JWT_SECRET, algorithms=[JWT_ALGO])
+    except jwt.PyJWTError:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "This sign-up link has expired — please sign in with SSO again")
+    if payload.get("purpose") != "oidc_signup":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid sign-up token")
+
+    provider, subject, email = payload["provider"], payload["subject"], payload["email"]
+    full_name = body.full_name or payload.get("name") or email
+
+    async with SessionLocal() as session:
+        existing = await session.execute(text("select id from users where lower(email) = lower(:email)"), {"email": email})
+        if existing.first():
+            raise HTTPException(status.HTTP_409_CONFLICT, "An account with this email already exists — sign in with SSO instead")
+
+        tenant_result = await session.execute(
+            text("""
+                insert into tenants (name, share_token)
+                values (:name, encode(gen_random_bytes(16), 'hex'))
+                returning id
+            """),
+            {"name": body.company_name},
+        )
+        tenant_id = tenant_result.scalar_one()
+
+        admin_role = await session.execute(text("select id from roles where name = 'admin'"))
+        admin_role_id = admin_role.scalar_one()
+
+        # No password_hash — an OIDC-only account has nothing to
+        # brute-force at /auth/login with, since that route requires
+        # a matching hash. random, never-shown value rather than NULL,
+        # since password_hash is NOT NULL in the schema; argon2 never
+        # matches a value it didn't itself hash from a real attempt.
+        user_result = await session.execute(
+            text("""
+                insert into users (tenant_id, email, password_hash, role_id, full_name, email_verified)
+                values (:tenant_id, :email, :password_hash, :role_id, :full_name, true)
+                returning id
+            """),
+            {
+                "tenant_id": str(tenant_id), "email": email,
+                "password_hash": ph.hash(secrets.token_urlsafe(32)),
+                "role_id": str(admin_role_id), "full_name": full_name,
+            },
+        )
+        user_id = user_result.scalar_one()
+
+        await session.execute(
+            text("insert into oidc_identities (user_id, provider, subject, email) values (:uid, :provider, :subject, :email)"),
+            {"uid": str(user_id), "provider": provider, "subject": subject, "email": email},
+        )
+
+        await session.execute(
+            text("select set_config('app.current_tenant', :tid, true)"),
+            {"tid": str(tenant_id)},
+        )
+        await write_audit_log(
+            session, str(tenant_id), str(user_id), "tenant.created_via_oidc_signup",
+            "tenant", str(tenant_id), None, {"company_name": body.company_name, "provider": provider},
+        )
+        await session.commit()
+
+    token = create_access_token(str(user_id), str(tenant_id), "admin", session_version=1)
+    return TokenOut(access_token=token)
 
 
 # ---------------------------------------------------------------
