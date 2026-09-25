@@ -3909,6 +3909,17 @@ async def list_opportunities(
                    o.programme_id, o.product_id, o.organization_id, p.name as product_name, pr.name as programme_name, org.name as organization_name,
                    pr.set_aside_code, pr.set_aside_description, pr.response_deadline,
                    pr.country, pr.naics_code, s.name as source_name, pr.ui_link,
+                   -- Whether this tender is actually actionable from
+                   -- what the source itself published, not whether it
+                   -- matched well — a high-scoring match with neither
+                   -- an apply link nor a procurement contact is a real,
+                   -- known gap (the source's own notice is incomplete,
+                   -- not a platform bug), and the list needs to say so
+                   -- rather than let it look identical to a fully
+                   -- actionable one (2026-09, a real user question:
+                   -- "what's the use of a lead with no way to act on
+                   -- it?").
+                   (pr.ui_link is not null or pr.contact_name is not null or pr.contact_email is not null) as has_action_path,
                    -- The GOVERNMENT'S own lifecycle stage for the
                    -- tender itself — returned on the list so a high
                    -- match score never gets mistaken for a live

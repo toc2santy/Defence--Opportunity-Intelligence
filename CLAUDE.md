@@ -2350,6 +2350,39 @@ a real `PATCH`/`GET` round trip AND a direct `psql` read of the raw
 column showing genuine ciphertext (`gAAAAABqs6PG...`, not
 `27AAAPL1234C1Z5`).
 
+### "No action path" transparency for opportunities with no apply link or contact (2026-09-25)
+
+A real user question, not a bug report: "what's the use of a lead
+with no way to act on it?" — some ingested tenders genuinely have
+neither an apply link (`programmes.ui_link`) nor a procurement
+contact published by their own source (SAM.gov/TED/UK-FT/etc.), a gap
+in what the source itself published, not a platform defect. Left as
+silent as before, a high-scoring match with no action path looked
+identical to a fully actionable one until a user opened it and hit
+"No direct link or contact published by this source for this notice
+yet." with nothing else to do.
+
+Two changes:
+- `GET /opportunities` now returns a computed `has_action_path`
+  boolean (`ui_link is not null or contact_name is not null or
+  contact_email is not null`, computed in SQL, not client-side) — the
+  main opportunities table shows a muted "No action path yet" tag on
+  these rows so they're visibly distinct from ready-to-act ones
+  without being hidden or re-ranked (still real, still might get a
+  link/contact added later by the source).
+- The opportunity detail page's "Path to Contract" panel, when
+  neither a link nor a contact exists, now offers a genuine fallback:
+  a "Search for this notice online" link built from the tender's own
+  name + buyer organization — not something this platform can
+  invent, but a real, low-effort next step instead of a dead end.
+
+Live-verified against real ingested SAM.gov data (a real tender with
+a genuine `ui_link` vs. a real test-fixture row with neither) —
+`has_action_path` computed correctly both ways over a real HTTP call.
+3 new regression tests cover all three cases (link only, contact
+only, neither). Full suite re-run clean (644 passed) before deploying
+to the real dev API.
+
 ### A real MFA-bypass gap in SSO, found testing against a REAL account with MFA enabled (2026-09-25)
 
 The isolated-stack testing below (fake-oidc-test) never had an
