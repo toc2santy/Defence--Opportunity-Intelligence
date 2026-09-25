@@ -3191,6 +3191,25 @@ async def update_opportunity(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             f"stage must be one of: {', '.join(OPPORTUNITY_STAGES)}",
         )
+
+    # owner_user_id has only a global FK (references users(id), any
+    # tenant) — see db/migrations for opportunities_owner_user_id_fkey.
+    # `users` itself carries no RLS (see /team/members' own docstring),
+    # so nothing at the database level stops this from being set to a
+    # DIFFERENT tenant's user id. That's not just cosmetic:
+    # /engagement/team-workload joins owner_user_id straight to
+    # users.full_name/email with no tenant filter, so an unvalidated
+    # cross-tenant id set here would disclose that other user's name
+    # and email on THIS tenant's own dashboard. Validated explicitly
+    # here, the same discipline /team/members already documents.
+    if body.owner_user_id is not None and not body.clear_owner:
+        owner_check = await session.execute(
+            text("select 1 from users where id = :owner_id and tenant_id = :tid"),
+            {"owner_id": body.owner_user_id, "tid": user.tenant_id},
+        )
+        if owner_check.first() is None:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "owner_user_id must be a member of your own team")
+
     new_due_date = before.due_date
     if body.due_date is not None:
         try:
@@ -3451,11 +3470,19 @@ async def get_team_workload(
                    count(*) as open_count,
                    count(*) filter (where o.due_date is not null and o.due_date < current_date) as overdue_count
             from opportunities o
-            left join users u on u.id = o.owner_user_id
+            -- users carries no RLS (see /team/members' own docstring),
+            -- so the tenant_id check belongs in the JOIN itself, not
+            -- assumed from o already being RLS-scoped — an owner_user_id
+            -- pointing to a different tenant's user (should no longer
+            -- be possible going forward, see PATCH /opportunities'
+            -- own validation, but any such row from before that
+            -- existed) must never disclose that user's name/email here.
+            left join users u on u.id = o.owner_user_id and u.tenant_id = :tid
             where o.stage not in ('won', 'lost')
             group by o.owner_user_id, u.full_name, u.email
             order by overdue_count desc, open_count desc
-        """)
+        """),
+        {"tid": user.tenant_id},
     )
     rows = [dict(row._mapping) for row in result]
     for row in rows:

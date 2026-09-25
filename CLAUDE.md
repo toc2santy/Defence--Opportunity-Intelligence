@@ -2350,6 +2350,72 @@ a real `PATCH`/`GET` round trip AND a direct `psql` read of the raw
 column showing genuine ciphertext (`gAAAAABqs6PG...`, not
 `27AAAPL1234C1Z5`).
 
+### A real IDOR gap found in a manual audit: opportunity ownership could be assigned cross-tenant (2026-09-25)
+
+Asked for directly as the next security item after email verification
+and key rotation: a systematic pass over the raw-SQL surface (every
+`text(f"...")` site for injection, then every `{id}`-shaped route for
+tenant-scoping correctness). The SQL-injection half came back clean —
+every f-string site either interpolates a hardcoded literal fragment
+(`not_a_test_fixture()`'s own output, always a fixed alias like `'p'`,
+never caller-supplied) or assembles a dynamic WHERE clause from a
+Python list of fixed literal conditions while the actual values always
+go through bound `:name` parameters, never string-interpolated.
+
+The IDOR half found one real, confirmed gap. `PATCH
+/opportunities/{id}` accepted `owner_user_id` with no validation
+beyond `opportunities_owner_user_id_fkey` — a global FK to `users(id)`,
+**any tenant**, not just the caller's own. That's exploitable because
+`users` deliberately carries no RLS policy (needed for login/lookup
+across tenants), so nothing at the database level stopped it either.
+The actual disclosure path: `GET /engagement/team-workload` joins
+`owner_user_id` straight to `users.full_name`/`email` with — until
+this fix — no tenant filter on the join, so a malicious tenant admin
+who somehow learned another tenant's user id (not straightforward,
+since ids are unguessable UUIDs, but the FK acceptance itself was also
+a blind "does this user id exist anywhere on the platform" oracle)
+could make that user's name and email show up on their OWN dashboard.
+
+Fixed in two layers, both live-verified on the isolated test stack
+with two real, separately-signed-up tenants:
+1. **Write-side**: `update_opportunity` now looks up `owner_user_id`
+   scoped to `where tenant_id = :tid` before accepting it, 422s
+   otherwise ("owner_user_id must be a member of your own team") —
+   the same explicit-tenant-filter discipline `/team/members`' own
+   docstring already documents as required whenever `users` is
+   queried, since RLS won't do it automatically here.
+2. **Read-side (defense in depth)**: `/engagement/team-workload`'s
+   join gained `and u.tenant_id = :tid`, so even a row that predates
+   this fix (or any future bug that bypasses the write-side check)
+   can never surface a foreign user's name/email — it silently
+   resolves to "Unassigned" instead, exactly like a genuinely
+   unassigned opportunity.
+
+Verified live: seeded a real cross-tenant `owner_user_id` two ways —
+via the API (confirmed 422, rejected) and by writing it directly into
+the DB to simulate a pre-existing/bypassed row (confirmed the
+read-side join still returned `full_name: null, email: null,
+display_name: "Unassigned"`, not the real user's identity). 3 new
+regression tests (`tests/test_opportunity_owner_isolation.py`) lock
+in both layers independently. Full suite re-run clean (622 passed,
+same pre-existing data-dependent failures as any fresh install, no
+new regressions) before deploying to the real dev API.
+
+Broader IDOR surface checked and confirmed clean: every route on
+products/opportunities/capabilities uses `get_tenant_session`, which
+IS genuinely enforced by RLS at the database level for those two
+tables specifically — confirmed empirically (`doi_app` sees 0 rows on
+`products` with `app.current_tenant` unset, i.e. RLS fails CLOSED, not
+open, so even a route that forgot to set tenant context would show
+nothing rather than leak). `GET /companies/{tenant_id}/profile`'s own
+intentional cross-tenant read (any logged-in user can see any other
+tenant's declared identity/compliance fields — the "register to see
+the full picture" vetting feature) is unchanged and remains
+deliberate, already documented in its own docstring; its `tenant_id`
+values aren't enumerable through any other authenticated endpoint
+(competitor/customer/OEM intelligence reference third-party
+`organizations`, an unrelated table, not this platform's own tenants).
+
 ### Encryption-key rotation tooling for MFA_ENCRYPTION_KEY / PII_ENCRYPTION_KEY (2026-09-23)
 
 `api/scripts/rotate_encryption_key.py` — a CLI, run inside the api
