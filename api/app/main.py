@@ -1146,8 +1146,26 @@ async def oidc_login(request: Request, provider: str):
 
 @app.get("/auth/oidc/{provider}/callback")
 @limiter.limit(LOGIN_RATE_LIMIT)
-async def oidc_callback(request: Request, provider: str, code: str, state: str):
+async def oidc_callback(
+    request: Request,
+    provider: str,
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    error: Optional[str] = None,
+    error_description: Optional[str] = None,
+):
     frontend_page = f"{FRONTEND_ORIGIN}/defence-opportunity-intelligence-app-v12.html"
+    # A provider redirects back here WITHOUT `code` when the login
+    # itself failed at the provider's own end — the user cancelled
+    # consent, the app registration is misconfigured (a real one hit
+    # live: Microsoft's own AADSTS error codes), etc. `code`/`state`
+    # were previously required, so this case 422'd before any of this
+    # function's own error handling ever ran, hiding the actual
+    # provider-reported reason behind a generic FastAPI validation
+    # error instead of showing it.
+    if not code or not state:
+        message = error_description or error or "Sign-in was cancelled or did not complete."
+        return RedirectResponse(f"{frontend_page}?oidc_error={quote(message)}", status_code=status.HTTP_302_FOUND)
     try:
         state_payload = decode_state_token(JWT_SECRET, state)
         if state_payload["provider"] != provider:

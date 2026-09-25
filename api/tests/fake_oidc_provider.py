@@ -80,11 +80,13 @@ async def authorize(request: Request):
     _ISSUED_CODES[code] = {
         "email": params.get("fake_email", "fake-oidc-user@example.com"),
         "name": params.get("fake_name", "Fake OIDC User"),
-        # Lets tests exercise app/oidc.py's own "reject an unverified
-        # email claim" check — every real provider we'd actually use
-        # (Google, Microsoft) always sends true for a real account, so
-        # this only exists for that one negative test.
-        "email_verified": params.get("fake_email_verified", "true").lower() != "false",
+        # Lets tests exercise app/oidc.py's own email_verified handling
+        # for all three real-world shapes: "true" (Google, always),
+        # "false" (an explicit no — the one real reject case), and
+        # "omit" (the claim absent entirely — Microsoft's real
+        # behavior for a personal outlook.com/hotmail.com account,
+        # found live 2026-09; must NOT be treated as false).
+        "email_verified": params.get("fake_email_verified", "true"),
         "nonce": params.get("nonce", ""),
         "redirect_uri": params["redirect_uri"],
         "client_id": params["client_id"],
@@ -121,18 +123,23 @@ async def token(request: Request):
 
     base = str(request.base_url).rstrip("/")
     now = int(time.time())
+    claims = {
+        "iss": base,
+        "aud": entry["client_id"],
+        "sub": f"fake-subject-{entry['email']}",
+        "email": entry["email"],
+        "name": entry["name"],
+        "nonce": entry["nonce"],
+        "iat": now,
+        "exp": now + 300,
+    }
+    # "omit" means genuinely leave the key out of the token — not the
+    # same as sending false — matching Microsoft's real personal-
+    # account behavior this claim is meant to simulate.
+    if entry["email_verified"] != "omit":
+        claims["email_verified"] = entry["email_verified"].lower() != "false"
     id_token = jwt.encode(
-        {
-            "iss": base,
-            "aud": entry["client_id"],
-            "sub": f"fake-subject-{entry['email']}",
-            "email": entry["email"],
-            "email_verified": entry["email_verified"],
-            "name": entry["name"],
-            "nonce": entry["nonce"],
-            "iat": now,
-            "exp": now + 300,
-        },
+        claims,
         _private_key,
         algorithm="RS256",
         headers={"kid": _kid},

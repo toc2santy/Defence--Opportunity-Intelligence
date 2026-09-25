@@ -143,6 +143,31 @@ def test_callback_rejects_a_tampered_state_token(client):
     assert "oidc_error" in resp.headers["location"]
 
 
+def test_callback_with_no_code_shows_the_providers_own_error_instead_of_a_422(client):
+    """
+    A real bug found live (2026-09): code/state were originally
+    required query params, so a provider redirecting back with an
+    error instead of a code (cancelled consent, a misconfigured app
+    registration — a real Microsoft AADSTS error hit this) 422'd
+    before this route's own error handling ever ran, hiding the
+    provider's actual reason behind a generic FastAPI validation
+    error.
+    """
+    resp = client.get(
+        "/auth/oidc/testprovider/callback",
+        params={"error": "access_denied", "error_description": "The user cancelled sign-in."},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 302
+    assert "cancelled" in _query_param(resp.headers["location"], "oidc_error")
+
+
+def test_callback_with_no_code_and_no_error_still_redirects_cleanly(client):
+    resp = client.get("/auth/oidc/testprovider/callback", follow_redirects=False)
+    assert resp.status_code == 302
+    assert "oidc_error" in resp.headers["location"]
+
+
 def test_callback_rejects_a_state_whose_provider_does_not_match_the_url(client):
     code_verifier, _ = _make_pkce()
     mismatched_state = _make_state("some-other-provider", code_verifier, "nonce-x")
@@ -178,6 +203,23 @@ def test_callback_rejects_an_unverified_email_claim(client):
     resp = _hit_callback(client, code, state)
     assert resp.status_code == 302
     assert "unverified" in resp.headers["location"]
+
+
+def test_callback_accepts_an_omitted_email_verified_claim(client):
+    """
+    A real bug found live (2026-09) testing "Continue with Microsoft"
+    against a real personal outlook.com account: Microsoft's real
+    id_token omits email_verified entirely for that account type —
+    treating "the provider didn't say" the same as "the provider said
+    no" incorrectly locked out every Microsoft personal account.
+    """
+    email = f"oidc-omitted-verified-{secrets.token_hex(6)}@example.com"
+    code, state = _run_authorize(client, fake_email=email, fake_email_verified="omit")
+    resp = _hit_callback(client, code, state)
+    assert resp.status_code == 302
+    location = resp.headers["location"]
+    assert "oidc_error" not in location, f"expected success, got: {location}"
+    assert _query_param(location, "oidc_signup_token") is not None
 
 
 def test_new_email_gets_a_signup_token_not_an_access_token(client):

@@ -2350,6 +2350,84 @@ a real `PATCH`/`GET` round trip AND a direct `psql` read of the raw
 column showing genuine ciphertext (`gAAAAABqs6PG...`, not
 `27AAAPL1234C1Z5`).
 
+### Three real Microsoft-specific OIDC interop bugs, found testing "Continue with Microsoft" against real accounts (2026-09-25)
+
+Google's OIDC implementation is close to the spec's happy path in
+every way this app checks; Microsoft's real behavior diverged from it
+in three separate, real ways, each only found by actually testing
+against real Microsoft accounts (a personal Azure/Entra account, then
+a personal outlook.com account) — none of these were guessable from
+the spec alone, and none were caught by the fake-oidc-test suite
+either, since that test double had been modeled on Google's behavior
+throughout.
+
+1. **A raw 422 instead of the provider's own error.** `code`/`state`
+   were originally required query params on `GET /auth/oidc/{provider}
+   /callback`. When Microsoft's own app-registration was still
+   misconfigured (see #2), it correctly redirected back with
+   `?error=invalid_client&error_description=AADSTS7000215:...`
+   instead of a code — and FastAPI 422'd on the missing required
+   `code` before this route's own error handling ever ran, hiding a
+   perfectly clear provider-reported reason behind a generic
+   validation error. Fixed: `code`/`state` are now `Optional`, and
+   their absence redirects to the frontend with the provider's own
+   `error_description` (or `error`, or a generic fallback) as
+   `?oidc_error=...`, same as every other rejection path already did.
+
+2. **Client secret VALUE vs ID.** Azure's own "Certificates & secrets"
+   page shows both a `Secret ID` (a GUID, not secret at all) and a
+   `Value` (the real secret) for each client secret — easy to copy
+   the wrong one, and Microsoft's own resulting error
+   (`AADSTS7000215: Invalid client secret provided`) doesn't say
+   which field is wrong, just that it's invalid. No code fix — a
+   configuration mistake on Azure's own confusing UI, not a bug here,
+   but worth documenting since it's exactly what happened live.
+
+3. **The multi-tenant `{tenantid}` issuer template**
+   (`app/oidc.py`'s `_issuer_matches`, see its own docstring) — the
+   `common`/`organizations`/`consumers` Microsoft endpoints' own
+   discovery document literally contains the unsubstituted string
+   `{tenantid}` in its `issuer` field; a real id_token's `iss` always
+   has the real tenant GUID substituted in, so PyJWT's built-in exact-
+   match `issuer=` check can never pass for Microsoft by Microsoft's
+   own design. Fixed with a template-aware check: exact match unless
+   the configured issuer contains `{tenantid}`, in which case a GUID-
+   shaped regex is matched instead — a real structural check, not a
+   blanket bypass. 7 new unit tests (`tests/test_oidc_unit.py`) cover
+   both the Google exact-match path and every Microsoft edge case
+   (real GUID, the literal unsubstituted template, a non-GUID
+   segment, a different host, extra path segments).
+
+4. **`email_verified` omitted entirely for a personal Microsoft
+   account.** This OIDC claim is OPTIONAL per spec (section 5.1) —
+   Google always sends it, but a real id_token from a personal
+   `outlook.com`/`hotmail.com` account omits the key altogether.
+   The original check (`claims.get("email_verified", False)`)
+   treated "the provider didn't say" identically to "the provider
+   explicitly said no", which is not the same claim and incorrectly
+   locked out every Microsoft personal account. Fixed to only reject
+   an EXPLICIT `false` (`claims.get("email_verified") is False`) —
+   absent or `true` both pass, on the reasoning that Microsoft's own
+   account creation already requires a verified email before an
+   account can exist, the same trust basis every other provider's
+   `true` claim rests on anyway. `fake_oidc_provider.py`'s
+   `fake_email_verified` param gained a third state (`"omit"`, not
+   just `"true"`/`"false"`) specifically to prove this live rather
+   than by inspection alone.
+
+All four found and fixed in direct response to the platform owner
+live-testing against their own real Google and Microsoft accounts —
+a concrete demonstration of why this session's "verify against a
+real second OIDC provider" testing (not just this app's own code)
+still wasn't sufficient on its own: Microsoft's real-world behavior
+differs from the spec's Google-shaped happy path in ways a
+same-vendor-modeled test double couldn't have caught, however
+thorough. Full suite re-run clean (654 passed, one previously-flaky
+ingestion test recovered once this session's own accumulated rate-
+limit usage reset) before each deploy to the real dev API; each fix
+was deployed and re-tested against the real failing account before
+moving to the next.
+
 ### "No action path" transparency for opportunities with no apply link or contact (2026-09-25)
 
 A real user question, not a bug report: "what's the use of a lead

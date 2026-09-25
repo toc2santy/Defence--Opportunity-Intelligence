@@ -35,6 +35,7 @@ project-specific inventions:
 """
 
 import os
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -127,6 +128,29 @@ async def exchange_code_for_tokens(token_endpoint: str, client_id: str, client_s
     return resp.json()
 
 
+def _issuer_matches(actual_issuer: str, expected_issuer_template: str) -> bool:
+    """
+    Usually an exact match (Google, or any single-tenant provider).
+    Microsoft's multi-tenant "common"/"organizations"/"consumers"
+    endpoints are the documented exception: their OWN discovery
+    document's `issuer` field literally contains the placeholder
+    string `{tenantid}` (e.g.
+    "https://login.microsoftonline.com/{tenantid}/v2.0"), which a
+    real id_token's `iss` claim replaces with whichever real tenant
+    GUID the signer-upper actually authenticated against — an exact
+    string match against the un-substituted template can never pass,
+    by Microsoft's own design, not a bug in this app. Found live
+    (2026-09) testing "Continue with Microsoft" against a real
+    account. Falls back to a regex built from the template with
+    `{tenantid}` replaced by a GUID pattern — still a real,
+    structural verification, not a blanket "any issuer" bypass.
+    """
+    if "{tenantid}" not in expected_issuer_template:
+        return actual_issuer == expected_issuer_template
+    pattern = "^" + re.escape(expected_issuer_template).replace(re.escape("{tenantid}"), r"[0-9a-fA-F-]{36}") + "$"
+    return re.match(pattern, actual_issuer) is not None
+
+
 def verify_id_token(id_token: str, jwks_uri: str, issuer: str, client_id: str, expected_nonce: str) -> dict:
     """
     Verifies signature (against the provider's own live JWKS),
@@ -135,6 +159,11 @@ def verify_id_token(id_token: str, jwks_uri: str, issuer: str, client_id: str, e
     PyJWKClient caches the JWKS response itself; a provider rotating
     its signing key mid-cache is the one scenario this could miss,
     the same acceptable window any JWKS-caching client has.
+
+    Issuer is checked manually (`_issuer_matches`, above) rather than
+    via PyJWT's own built-in `issuer=` exact-match, specifically for
+    Microsoft's multi-tenant `{tenantid}` template — see that
+    function's own docstring.
     """
     jwk_client = PyJWKClient(jwks_uri)
     signing_key = jwk_client.get_signing_key_from_jwt(id_token)
@@ -143,18 +172,31 @@ def verify_id_token(id_token: str, jwks_uri: str, issuer: str, client_id: str, e
             id_token,
             signing_key.key,
             algorithms=["RS256"],
-            issuer=issuer,
             audience=client_id,
         )
     except jwt.PyJWTError as e:
         raise OidcVerificationError(f"id_token verification failed: {e}")
+
+    if not _issuer_matches(claims.get("iss", ""), issuer):
+        raise OidcVerificationError(f"id_token issuer mismatch: got {claims.get('iss')!r}, expected to match {issuer!r}")
 
     if claims.get("nonce") != expected_nonce:
         raise OidcVerificationError("id_token nonce mismatch — possible replay")
 
     if not claims.get("email"):
         raise OidcVerificationError("Provider did not return an email claim")
-    if not claims.get("email_verified", False):
+    # `email_verified` is an OPTIONAL OIDC claim (spec section 5.1) —
+    # a provider omitting it is NOT the same statement as a provider
+    # explicitly sending `false`, and treating "didn't say" as
+    # "unverified" (the original `.get(..., False)` did) turns out to
+    # reject entirely legitimate providers. Found live (2026-09):
+    # Microsoft's real id_token for a personal (outlook.com/hotmail.com)
+    # account omits this claim altogether — Google always sends it,
+    # Microsoft does not, and Microsoft's own account creation already
+    # requires a verified email before an account can exist at all.
+    # Only an EXPLICIT `false` is trusted as a real "no" here; absent
+    # or `true` both pass.
+    if claims.get("email_verified") is False:
         raise OidcVerificationError("Provider reports this email as unverified — cannot use it to sign in")
 
     return claims
