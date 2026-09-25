@@ -1059,7 +1059,12 @@ async def resend_verification(request: Request, user: TokenPayload = Depends(get
 # need to sign out, "forget" a password they still remember, and wait
 # on an email just to change it. Requires the CURRENT password (not
 # just an active session) — the same re-auth-for-a-security-lowering-
-# or-changing-action discipline as /auth/mfa/disable.
+# or-changing-action discipline as /auth/mfa/disable. Rate-limited
+# (2026-09, found in a manual audit) for the same reason: re-checking
+# a password with no throttle turns a stolen/hijacked session token
+# into an unlimited password-guessing oracle, the one class of attack
+# LOGIN_RATE_LIMIT + account lockout already exist to prevent on
+# /auth/login itself.
 # ---------------------------------------------------------------
 class ChangePasswordIn(BaseModel):
     current_password: str
@@ -1067,7 +1072,9 @@ class ChangePasswordIn(BaseModel):
 
 
 @app.post("/auth/change-password")
+@limiter.limit(LOGIN_RATE_LIMIT)
 async def change_password(
+    request: Request,
     body: ChangePasswordIn,
     user: TokenPayload = Depends(get_current_user),
     session: AsyncSession = Depends(get_tenant_session),
@@ -1520,7 +1527,9 @@ async def mfa_enable(
 
 
 @app.post("/auth/mfa/disable")
+@limiter.limit(LOGIN_RATE_LIMIT)  # same password-guessing-oracle reasoning as /auth/change-password, above
 async def mfa_disable(
+    request: Request,
     body: MfaDisableIn,
     user: TokenPayload = Depends(get_current_user),
     session: AsyncSession = Depends(get_tenant_session),

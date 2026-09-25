@@ -2350,6 +2350,30 @@ a real `PATCH`/`GET` round trip AND a direct `psql` read of the raw
 column showing genuine ciphertext (`gAAAAABqs6PG...`, not
 `27AAAPL1234C1Z5`).
 
+### Rate limiting gap closed: /auth/change-password and /auth/mfa/disable (2026-09-25)
+
+Found in a follow-up sweep after the SQL-injection/IDOR audit below:
+of every `/auth/*`-ish route, these two were the only ones that
+re-verify a password with NO throttle at all. `/auth/login` itself
+has both `LOGIN_RATE_LIMIT` and per-account lockout specifically to
+make password guessing impractical — a valid session token (stolen,
+hijacked, left open on a shared device) with unlimited guesses against
+`current_password`/`password` on these two routes would have been the
+one remaining way around that protection, without ever needing the
+account's real password at all.
+
+Fixed by adding the same `@limiter.limit(LOGIN_RATE_LIMIT)` these
+routes' sibling `/auth/mfa/enable` already had. Live-verified on the
+isolated test stack: temporarily set `LOGIN_RATE_LIMIT=3/hour` there,
+confirmed both routes 401 on 3 wrong-password attempts and correctly
+429 on the 4th, each with its own independent bucket (not sharing one
+counter) — then reverted the test stack's override back to its normal
+throwaway-generous value and reset it (`down -v` + re-migrate) before
+running the full suite, same discipline as the encryption-key-rotation
+tooling's own test cycle. Full suite re-run clean (622 passed, same
+7 pre-existing data-dependent failures as any fresh install) before
+deploying to the real dev API.
+
 ### A real IDOR gap found in a manual audit: opportunity ownership could be assigned cross-tenant (2026-09-25)
 
 Asked for directly as the next security item after email verification
