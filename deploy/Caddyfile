@@ -1,0 +1,77 @@
+# Caddy — TLS (automatic Let's Encrypt), static frontend, API reverse proxy.
+#
+#   app.<DOMAIN>  -> the single-file frontend + a generated /config.js
+#   api.<DOMAIN>  -> reverse proxy to the API container
+#
+# proxy-mode.caddy is written by deploy/deploy.sh and defines two
+# snippets, because the right answer depends on whether Cloudflare's
+# proxy ("orange cloud") sits in front of this server:
+#
+#   (origin_guard)  Cloudflare mode: reject any request that did NOT
+#                   come from a Cloudflare IP range. Without this,
+#                   anyone who finds the server's real IP could bypass
+#                   Cloudflare AND spoof the CF-Connecting-IP header
+#                   to dodge the per-IP rate limits. Direct mode: no-op.
+#   (client_ip)     Which value is the REAL visitor IP to pass to the
+#                   API as X-Forwarded-For (rate limits and lockouts
+#                   key on it): CF-Connecting-IP behind Cloudflare,
+#                   the TCP peer address otherwise.
+{
+	email {$ACME_EMAIL}
+}
+
+import /etc/caddy/generated/proxy-mode.caddy
+
+app.{$DOMAIN} {
+	import origin_guard
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		# The frontend is one HTML file with inline <script>/<style>, so
+		# 'unsafe-inline' is unavoidable for those two directives; the
+		# value of this policy is everything ELSE it pins down: no other
+		# script origins, no framing, API calls only to our own API host,
+		# forms only to ourselves.
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.{$DOMAIN}; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+		-Server
+	}
+
+	# Generated per deployment so the same HTML works on any domain.
+	handle /config.js {
+		header Content-Type "application/javascript"
+		header Cache-Control "no-store"
+		respond `window.DOI_CONFIG={apiBaseUrl:"https://api.{$DOMAIN}"};` 200
+	}
+
+	# The app is served at "/" AND at its own filename, because emails
+	# and SSO redirects built by the API link to the filename.
+	handle / {
+		rewrite * /defence-opportunity-intelligence-app-v12.html
+		root * /srv/frontend
+		file_server
+	}
+
+	handle {
+		root * /srv/frontend
+		file_server
+	}
+}
+
+api.{$DOMAIN} {
+	import origin_guard
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	reverse_proxy api:8000 {
+		import client_ip
+	}
+}

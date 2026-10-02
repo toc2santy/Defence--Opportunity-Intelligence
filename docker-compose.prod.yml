@@ -1,0 +1,175 @@
+# ============================================================
+# Production stack (2026-10) — one small VPS, Docker Compose.
+#
+#   internet -> (Cloudflare) -> caddy :80/:443 -> api :8000 -> db :5432
+#
+# Differences from docker-compose.yml (dev), all deliberate:
+#   - db and api publish NO ports. Only caddy is reachable from
+#     outside; Postgres is never exposed to the host network.
+#   - No default passwords: every secret is required (`:?`) so a
+#     missing value stops `compose up` instead of silently falling
+#     back to "postgres"/"changeme".
+#   - ENVIRONMENT=production: no /docs, no file:// CORS origin,
+#     refuses to boot on a weak JWT_SECRET (see app/main.py).
+#   - SIGNUP_ALLOWLIST is required, so a public deployment cannot go
+#     live with open sign-up by forgetting a variable (use "*" to
+#     say "open" explicitly).
+#   - ONE uvicorn worker, on purpose: APScheduler (ingestion, backups,
+#     retention) and the in-memory rate limiter live inside the API
+#     process, so a second worker would run every scheduled job twice
+#     and split the rate-limit counters.
+#   - Backups go to a SEPARATE R2 bucket from dev (R2_BACKUP_BUCKET is
+#     required). Sharing one would mix dev and prod WAL/dump files and
+#     let each environment's retention pruning delete the other's.
+#
+# Usage (from /opt/doi on the server):
+#   cp deploy/.env.prod.example .env.prod   # then fill it in
+#   deploy/deploy.sh
+# ============================================================
+
+name: doi-prod
+
+services:
+  db:
+    build:
+      context: .
+      dockerfile: db/Dockerfile
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: doi
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}
+      AWS_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?set R2_ACCESS_KEY_ID in .env.prod}
+      AWS_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?set R2_SECRET_ACCESS_KEY in .env.prod}
+      AWS_ENDPOINT: https://${R2_ACCOUNT_ID:?set R2_ACCOUNT_ID in .env.prod}.r2.cloudflarestorage.com
+      AWS_S3_FORCE_PATH_STYLE: "true"
+      AWS_REGION: auto
+      WALG_S3_PREFIX: s3://${R2_BACKUP_BUCKET:?set R2_BACKUP_BUCKET (a PROD-only bucket) in .env.prod}/wal-archive
+      WALG_COMPRESSION_METHOD: brotli
+    volumes:
+      - doi_pgdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./db/roles.sql:/docker-entrypoint-initdb.d/00_roles.sql:ro
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command=wal-g wal-push %p
+      - -c
+      - archive_timeout=300
+      # Sized for a 4 GB VPS shared with the API and a nightly pg_dump.
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - effective_cache_size=1536MB
+      - -c
+      - max_connections=60
+    healthcheck:
+      # -h 127.0.0.1 (TCP), not the default unix socket: on first boot
+      # the official image runs a TEMPORARY server that listens only on
+      # the socket while it executes the init scripts, then shuts it
+      # down and starts the real one. A socket check reports "ready"
+      # during that window, and anything started on it (the API, the
+      # migrations) then hits "the database system is shutting down".
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d doi"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    restart: unless-stopped
+    command:
+      - uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --workers
+      - "1"
+      # The API is reachable ONLY from caddy (no published port), so
+      # trusting the forwarded headers is safe here; without this every
+      # user would share caddy's IP and therefore ONE rate-limit bucket.
+      - --proxy-headers
+      - --forwarded-allow-ips=*
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://doi_app:${DOI_APP_PASSWORD:?set DOI_APP_PASSWORD in .env.prod}@db:5432/doi
+      ALEMBIC_DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@db:5432/doi
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET (32+ chars) in .env.prod}
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:?set MFA_ENCRYPTION_KEY in .env.prod}
+      PII_ENCRYPTION_KEY: ${PII_ENCRYPTION_KEY:?set PII_ENCRYPTION_KEY in .env.prod}
+      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:?set BACKUP_ENCRYPTION_KEY in .env.prod}
+      FRONTEND_ORIGIN: https://app.${DOMAIN:?set DOMAIN in .env.prod}
+      API_BASE_URL: https://api.${DOMAIN}
+      SIGNUP_ALLOWLIST: ${SIGNUP_ALLOWLIST:?set SIGNUP_ALLOWLIST in .env.prod (emails/@domains, or * for open)}
+      ALERT_EMAIL: ${ALERT_EMAIL:?set ALERT_EMAIL in .env.prod}
+      SMTP_HOST: ${SMTP_HOST:?set SMTP_HOST in .env.prod}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:?set SMTP_FROM in .env.prod}
+      SAM_GOV_API_KEY: ${SAM_GOV_API_KEY:-}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_BACKUP_BUCKET: ${R2_BACKUP_BUCKET}
+      DEFAULT_RATE_LIMIT: ${DEFAULT_RATE_LIMIT:-300/minute}
+      SIGNUP_RATE_LIMIT: ${SIGNUP_RATE_LIMIT:-20/hour}
+      LOGIN_RATE_LIMIT: ${LOGIN_RATE_LIMIT:-60/hour}
+      INGESTION_RATE_LIMIT: ${INGESTION_RATE_LIMIT:-5/hour}
+      PREVIEW_RATE_LIMIT: ${PREVIEW_RATE_LIMIT:-20/minute}
+      PASSWORD_RESET_RATE_LIMIT: ${PASSWORD_RESET_RATE_LIMIT:-5/hour}
+      AUDIT_LOG_RETENTION_DAYS: ${AUDIT_LOG_RETENTION_DAYS:-730}
+      TOKEN_RETENTION_DAYS: ${TOKEN_RETENTION_DAYS:-30}
+      OIDC_GOOGLE_CLIENT_ID: ${OIDC_GOOGLE_CLIENT_ID:-}
+      OIDC_GOOGLE_CLIENT_SECRET: ${OIDC_GOOGLE_CLIENT_SECRET:-}
+      OIDC_GOOGLE_ISSUER: https://accounts.google.com
+      OIDC_MICROSOFT_CLIENT_ID: ${OIDC_MICROSOFT_CLIENT_ID:-}
+      OIDC_MICROSOFT_CLIENT_SECRET: ${OIDC_MICROSOFT_CLIENT_SECRET:-}
+      OIDC_MICROSOFT_ISSUER: https://login.microsoftonline.com/common/v2.0
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=4).status == 200 else 1)"]
+      interval: 15s
+      timeout: 6s
+      retries: 5
+      start_period: 20s
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env.prod}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # proxy-mode.caddy is written by deploy/deploy.sh (Cloudflare vs.
+      # direct mode) — see deploy/Caddyfile for what it defines. Gitignored on purpose so
+      # a `git pull` never conflicts with the server's own mode.
+      # The DIRECTORY, not the single file: a single-file bind mount pins
+      # the original inode, so any editor or `sed -i` (which replace the
+      # file) would leave caddy reading a stale copy. Found by the smoke test.
+      - ./deploy/generated:/etc/caddy/generated:ro
+      - ./frontend:/srv/frontend:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  doi_pgdata:
+  caddy_data:
+  caddy_config:

@@ -28,12 +28,13 @@ SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER = os.environ.get("SMTP_USER")
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
 SMTP_FROM = os.environ.get("SMTP_FROM", "no-reply@defence-oi.local")
+SMTP_TIMEOUT_SECONDS = float(os.environ.get("SMTP_TIMEOUT_SECONDS", "10"))
 
 
 def send_email(to_email: str, subject: str, body: str) -> bool:
     """
     Returns True if actually handed to an SMTP server, False if it
-    fell back to console logging (no SMTP configured). Callers should
+    fell back to console logging (no SMTP configured) or the send failed. Callers should
     treat both as "the request was processed" — the caller-facing API
     response must not reveal which happened, since that would leak
     whether a given email address has an account (see the forgot-
@@ -52,9 +53,25 @@ def send_email(to_email: str, subject: str, body: str) -> bool:
     msg["Subject"] = subject
     msg.set_content(body)
 
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-        server.starttls()
-        if SMTP_USER and SMTP_PASSWORD:
-            server.login(SMTP_USER, SMTP_PASSWORD)
-        server.send_message(msg)
-    return True
+    # Never raises (2026-10, found by a production smoke test): by the
+    # time most callers send, the database change this email is ABOUT
+    # (a new account, a reset token) is already committed, so a mail
+    # outage turning into a 500 would report failure for something that
+    # succeeded — and on forgot-password it would also tell an attacker
+    # which addresses have accounts (a send is attempted only when the
+    # account exists, so only those requests would fail). A bounded
+    # timeout matters for the same reason: with none, an unreachable
+    # SMTP host held the request open until the proxy gave up with a 502.
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT_SECONDS) as server:
+            server.starttls()
+            if SMTP_USER and SMTP_PASSWORD:
+                server.login(SMTP_USER, SMTP_PASSWORD)
+            server.send_message(msg)
+        return True
+    except Exception as e:  # noqa: BLE001 — see above: any failure must be contained
+        print(
+            f"\n[email_sender] FAILED to send via {SMTP_HOST}:{SMTP_PORT} — {type(e).__name__}: {e}\n"
+            f"  To: {to_email}\n  Subject: {subject}\n"
+        )
+        return False

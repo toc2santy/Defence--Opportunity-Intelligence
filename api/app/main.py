@@ -57,6 +57,7 @@ from app.backup import (
     run_restore_drill, restore_drill_health, check_staleness_and_alert,
 )
 from app.retention import run_retention_purge, retention_health
+from app.signup_policy import parse_allowlist, is_allowed
 from app.oidc import (
     get_provider_config, discover_provider, make_pkce_pair, make_state_token,
     decode_state_token, exchange_code_for_tokens, verify_id_token,
@@ -88,6 +89,36 @@ DATABASE_URL = os.environ.get(
 )
 JWT_SECRET = os.environ.get("JWT_SECRET", "dev-secret-change-in-real-deploys")
 JWT_ALGO = "HS256"
+
+# "production" (set by docker-compose.prod.yml) turns on the stricter
+# behaviour a public deployment needs and a laptop dev stack must not:
+# no /docs or /openapi.json, no file:// ("null") CORS origin, and a
+# refusal to boot on a weak/default JWT_SECRET. Everything else behaves
+# identically in both modes, so the tested code path is the shipped one.
+ENVIRONMENT = os.environ.get("ENVIRONMENT", "development").lower()
+IS_PRODUCTION = ENVIRONMENT == "production"
+if IS_PRODUCTION and (JWT_SECRET == "dev-secret-change-in-real-deploys" or len(JWT_SECRET) < 32):
+    raise RuntimeError(
+        "ENVIRONMENT=production but JWT_SECRET is missing, the dev default, or shorter than 32 "
+        "characters — refusing to start, since anyone could forge a login token. Generate one with: "
+        "python3 -c \"import secrets; print(secrets.token_urlsafe(48))\""
+    )
+
+# Invite-only sign-up (2026-10). Comma-separated list of exact emails
+# and/or "@domain.com" entries that may create a NEW account (password
+# or SSO). "*" explicitly means open sign-up. UNSET means open too —
+# that is the dev default; docker-compose.prod.yml makes it REQUIRED,
+# so a public deployment can never go live open by forgetting a
+# variable. Existing accounts are never affected: this gates creation
+# of new tenants only, not login or SSO auto-link of an existing user.
+SIGNUP_ALLOWLIST = parse_allowlist(os.environ.get("SIGNUP_ALLOWLIST", "*"))
+
+
+def signup_allowed(email: str) -> bool:
+    return is_allowed(email, SIGNUP_ALLOWLIST)
+
+
+SIGNUP_CLOSED_MESSAGE = "Sign-ups are invite-only right now. Ask the platform owner to add your email."
 ACCESS_TOKEN_MINUTES = 30
 
 # How often the scheduled SAM.gov pull runs, in hours. Kept short
@@ -99,7 +130,12 @@ engine = create_async_engine(DATABASE_URL, echo=False)
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 ph = PasswordHasher()
 
-app = FastAPI(title="Defence Opportunity Intelligence API")
+app = FastAPI(
+    title="Defence Opportunity Intelligence API",
+    docs_url=None if IS_PRODUCTION else "/docs",
+    redoc_url=None if IS_PRODUCTION else "/redoc",
+    openapi_url=None if IS_PRODUCTION else "/openapi.json",
+)
 bearer_scheme = HTTPBearer()
 
 # ---------------------------------------------------------------
@@ -173,7 +209,11 @@ app.add_middleware(
     # user-reported bug (2026-09-23): the app couldn't reach the API
     # at all, not even to submit a password reset, which is why
     # resetting the password didn't fix anything either.
-    allow_origins=[FRONTEND_ORIGIN, "http://127.0.0.1:5500", "null"],
+    # Production allows ONLY the real frontend origin. The extra
+    # dev origins above exist for double-clicking the HTML from disk;
+    # on a public API "null" would let any sandboxed iframe or local
+    # file make credentialed calls.
+    allow_origins=[FRONTEND_ORIGIN] if IS_PRODUCTION else [FRONTEND_ORIGIN, "http://127.0.0.1:5500", "null"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -697,6 +737,8 @@ class LoginOut(BaseModel):
 @app.post("/auth/signup", response_model=TokenOut, status_code=201)
 @limiter.limit(SIGNUP_RATE_LIMIT)
 async def signup(request: Request, body: SignupIn):
+    if not signup_allowed(body.email):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, SIGNUP_CLOSED_MESSAGE)
     if len(body.password) < 10:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Password must be at least 10 characters")
 
@@ -1294,6 +1336,9 @@ async def oidc_callback(
             token = create_access_token(str(existing.id), str(existing.tenant_id), existing.role_name, session_version=existing.session_version)
             return RedirectResponse(f"{frontend_page}?oidc_token={token}", status_code=status.HTTP_302_FOUND)
 
+    if not signup_allowed(email):
+        return RedirectResponse(f"{frontend_page}?oidc_error={quote(SIGNUP_CLOSED_MESSAGE)}", status_code=status.HTTP_302_FOUND)
+
     # 3. Genuinely new — this platform has no tenant for this person
     # yet, and only a human can supply a company_name. Hand the
     # browser a short-lived signup token instead of an access_token.
@@ -1326,6 +1371,8 @@ async def oidc_complete_signup(request: Request, body: OidcCompleteSignupIn):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid sign-up token")
 
     provider, subject, email = payload["provider"], payload["subject"], payload["email"]
+    if not signup_allowed(email):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, SIGNUP_CLOSED_MESSAGE)
     full_name = body.full_name or payload.get("name") or email
 
     async with SessionLocal() as session:

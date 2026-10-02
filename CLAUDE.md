@@ -2350,6 +2350,66 @@ a real `PATCH`/`GET` round trip AND a direct `psql` read of the raw
 column showing genuine ciphertext (`gAAAAABqs6PG...`, not
 `27AAAPL1234C1Z5`).
 
+### Production deployment config for a Hetzner VPS (2026-10, `deploy/`, `docker-compose.prod.yml`)
+
+Everything needed to put the stack on one small VPS: `docker-compose.prod.yml`
+(db + api + caddy; db/api publish NO ports, only caddy's 80/443),
+`deploy/Caddyfile` (auto-HTTPS, frontend at `app.<DOMAIN>`, API at
+`api.<DOMAIN>`, CSP/HSTS, generated `/config.js`), `server-setup.sh`
+(one-time hardening: key-only SSH — only if it found a key to give the
+deploy user, so it cannot lock you out — ufw, fail2ban, auto-updates, Docker
+log rotation, swap), `gen-secrets.sh`, `deploy.sh`, `migrate.sh`,
+`restore-dump.sh`, `verify.sh`, `.env.prod.example` and a step-by-step
+`DEPLOY.md`. The frontend HTML is now in the repo (`frontend/`) and reads its
+API host from `config.js` (falls back to localhost, so opening it from disk
+still works) — this also ends the "frontend lives outside git" gap.
+
+App-side changes it needed: `ENVIRONMENT=production` turns off
+`/docs`/`/openapi.json`, drops the `null`/localhost CORS origins and refuses
+to boot on a weak/default `JWT_SECRET`; **invite-only sign-up**
+(`SIGNUP_ALLOWLIST`, pure logic in `app/signup_policy.py`) gates NEW account
+creation on both password sign-up and the SSO new-account path (login and SSO
+auto-link of existing users are unaffected); prod compose makes it REQUIRED
+(`*` = explicitly open). Prod runs ONE uvicorn worker on purpose
+(APScheduler + the in-memory rate limiter live in the process; a second worker
+would run every scheduled job twice) with `--proxy-headers`, which is safe only
+because the API has no published port.
+
+**Rehearsed end to end locally** (separate compose project, then torn down):
+gen-secrets -> deploy -> verify -> Cloudflare mode -> restore a dump. That
+rehearsal found six real problems, all fixed:
+1. Postgres' first boot runs a TEMPORARY server that listens only on the unix
+   socket; `pg_isready` over the socket reported "ready" while it was about to
+   shut down, so migrations died with "the database system is shutting down".
+   Readiness (script and healthcheck) now checks TCP (`-h 127.0.0.1`).
+2. `send_email` raised on any SMTP failure (and had no timeout). Sign-up
+   committed the account then returned 500; forgot-password would also have
+   leaked which emails exist (a send is only attempted for real accounts).
+   It now never raises, times out at 10s and logs loudly.
+3. Switching to Cloudflare mode did NOT take effect: `compose up -d` does not
+   restart caddy when only the generated proxy-mode file changed, so the origin
+   stayed open. `deploy.sh` now always `caddy reload`s.
+4. A single-file bind mount pins the original inode, so an editor or `sed -i`
+   left caddy reading a stale file. The whole `deploy/generated/` directory is
+   mounted instead.
+5. The Cloudflare-only origin guard would also have blocked Let's Encrypt's
+   HTTP-01 challenge (issue and renewal); that path is exempt. First deploy
+   therefore starts with `USE_CLOUDFLARE=no`, flipped after the cert exists.
+6. verify.sh used a `.invalid` address that the email validator rejects with
+   422 before the allowlist check ran.
+Proven in Cloudflare mode: a non-Cloudflare client is refused (connection
+aborted), the ACME path passes, and a request carrying `CF-Connecting-IP`
+reaches the API with THAT as the client IP (so per-IP rate limits and
+lockouts see real visitors, not caddy). Dump restore took a populated DB into a
+fresh stack, stayed at migration head, and RLS still held.
+
+**Not rehearsable locally, so unverified until the real server exists:** DNS,
+the real Let's Encrypt issuance, Cloudflare itself, and real SMTP delivery
+(DEPLOY.md step 9 lists the by-hand checks). The db image bundles an x86-64
+wal-g, so the server must be x86 (Hetzner CX/CPX), not ARM (CAX). Prod needs
+its OWN R2 bucket — sharing the dev one would mix WAL/dumps and let each
+environment's retention pruning delete the other's.
+
 ### "Run All 10 Engines" live progress pop-up (2026-10-02, frontend only)
 
 Product detail page gained a primary "Run All 10 Engines" button
