@@ -299,6 +299,13 @@ async def run_sam_gov_ingestion(
         await session.commit()
 
     except Exception as e:
+        # A failed statement earlier in this same transaction leaves
+        # it poisoned — Postgres refuses every further command with
+        # "current transaction is aborted" until a rollback, masking
+        # the real error with a second, more confusing one right
+        # here. Same class of bug found and fixed live in
+        # app/retention.py (2026-09) — fixed the same way here too.
+        await session.rollback()
         await session.execute(
             text("update ingestion_jobs set status = 'failed', finished_at = now(), error = :error where id = :job_id"),
             {"error": str(e), "job_id": job_id},

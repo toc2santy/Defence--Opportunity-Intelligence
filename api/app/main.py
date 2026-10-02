@@ -37,6 +37,7 @@ from slowapi.util import get_remote_address
 
 from app.classification import classify_text, MINIMUM_SCORE_TO_SUGGEST
 from app.sam_gov_ingestion import run_sam_gov_ingestion, IngestionConfigError, get_rotation_index
+from app.sam_gov_refresh import refresh_sam_gov_contacts
 from app.uk_ft_ingestion import run_uk_ft_ingestion
 from app.ted_eu_ingestion import run_ted_eu_ingestion
 from app.cppp_india_ingestion import run_cppp_india_ingestion
@@ -388,6 +389,18 @@ async def _run_scheduled_retention_purge():
             print(f"[scheduled retention purge] failed: {e}")
 
 
+async def _run_scheduled_sam_gov_contact_refresh():
+    # No config-gate — app/sam_gov_refresh.py's own detail endpoint
+    # needs no SAM_GOV_API_KEY (see its own module docstring), so
+    # there's no "not configured yet" state to skip quietly for.
+    async with SessionLocal() as session:
+        try:
+            result = await refresh_sam_gov_contacts(session)
+            print(f"[scheduled SAM.gov contact refresh] {result}")
+        except Exception as e:
+            print(f"[scheduled SAM.gov contact refresh] failed: {e}")
+
+
 @app.on_event("startup")
 async def start_scheduler():
     await _reap_orphaned_ingestion_jobs()
@@ -449,6 +462,21 @@ async def start_scheduler():
         hour=3,
         minute=30,
         id="scheduled_retention_purge",
+        replace_existing=True,
+    )
+    # Weekly, not daily — amendments to an already-stored notice
+    # (this exists to catch) accumulate slowly, and DEFAULT_BATCH_LIMIT
+    # (200/run) bounds each run's own wall-clock time regardless of
+    # cadence. Sunday 05:30 UTC — after the restore drill (04:00) has
+    # had time to finish, so this never competes with it for the
+    # scheduler's single event loop during that heavier job.
+    scheduler.add_job(
+        _run_scheduled_sam_gov_contact_refresh,
+        "cron",
+        day_of_week="sun",
+        hour=5,
+        minute=30,
+        id="scheduled_sam_gov_contact_refresh",
         replace_existing=True,
     )
     scheduler.start()
@@ -2651,6 +2679,17 @@ async def trigger_sam_gov_ingestion(
     key_status = await _get_credential_status(session, "SAM_GOV_API_KEY")
     result["api_key_status"] = key_status
     return result
+
+
+@app.post("/ingestion/sam-gov/refresh-contacts")
+@limiter.limit(INGESTION_RATE_LIMIT)
+async def trigger_sam_gov_contact_refresh(
+    request: Request,
+    user: TokenPayload = Depends(require_role("admin")),
+    session: AsyncSession = Depends(get_tenant_session),
+):
+    """Manual on-demand version of the weekly scheduled contact refresh — see app/sam_gov_refresh.py's own module docstring for why this exists and how it works."""
+    return await refresh_sam_gov_contacts(session)
 
 
 class UkFtRunIn(BaseModel):

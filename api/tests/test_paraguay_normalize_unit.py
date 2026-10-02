@@ -7,6 +7,7 @@ fetched live on 2026-09-18 (see db/migrations/039's header).
 from app.paraguay_normalize import (
     _ui_link_from_ocid,
     extract_classification_from_detail,
+    extract_contact_from_detail,
     extract_eligibility_from_detail,
     is_defence_buyer,
     is_non_materiel_category,
@@ -300,3 +301,59 @@ def test_normalize_record_sets_ui_link():
         "https://www.contrataciones.gov.py/datos/visualizaciones/"
         "ciclo_licitacion/index.html?id_llamado=483403"
     )
+
+
+def _detail_payload_with_parties(parties):
+    return {"records": [{"ocid": "x", "releases": [], "compiledRelease": {"parties": parties}}]}
+
+
+def test_extract_contact_from_detail_real_shape():
+    """
+    A real gap found live (2026-09) via the same user-reported "no
+    contact published" question that led to the SAM.gov refresh
+    feature: this shape (a `procuringEntity`-roled party with a real
+    contactPoint) was confirmed against a live DNCP record —
+    parties/contactPoint never appears in the SEARCH endpoint's own
+    compiledRelease at all, only in the per-candidate detail fetch.
+    """
+    detail = _detail_payload_with_parties([
+        {"name": "Ministerio de Defensa Nacional (MDN)", "roles": ["buyer"]},
+        {
+            "name": "Comando de la Fuerza Aerea Uoc 4 / Ministerio de Defensa Nacional",
+            "roles": ["procuringEntity", "payer"],
+            "contactPoint": {"email": "dafiba311@gmail.com", "name": "MY AVL EDER GAMARRA BRITEZ", "telephone": "0216892125"},
+        },
+        {"name": "Helipower S.A", "roles": ["supplier", "tenderer", "payee"], "contactPoint": {"email": "jlopez@helipower.com.ar"}},
+    ])
+    contact = extract_contact_from_detail(detail)
+    assert contact["contact_email"] == "dafiba311@gmail.com"
+    assert contact["contact_name"] == "MY AVL EDER GAMARRA BRITEZ"
+    assert contact["contact_phone"] == "0216892125"
+
+
+def test_extract_contact_from_detail_never_uses_the_buyer_or_supplier_party():
+    """The parent ministry's shared "buyer" contact and a competing bidder's own "supplier" contact must never be surfaced as THIS tender's procurement contact."""
+    detail = _detail_payload_with_parties([
+        {"name": "Ministerio de Defensa Nacional (MDN)", "roles": ["buyer"], "contactPoint": {"email": "should-not-be-used@mdn.gov.py"}},
+        {"name": "Some Supplier", "roles": ["supplier"], "contactPoint": {"email": "should-not-be-used@supplier.com"}},
+    ])
+    contact = extract_contact_from_detail(detail)
+    assert contact["contact_email"] is None
+    assert contact["contact_name"] is None
+
+
+def test_extract_contact_from_detail_missing_parties_or_records():
+    assert extract_contact_from_detail({"records": [{"compiledRelease": {}}]}) == {
+        "contact_name": None, "contact_email": None, "contact_phone": None,
+    }
+    assert extract_contact_from_detail({"records": []}) == {
+        "contact_name": None, "contact_email": None, "contact_phone": None,
+    }
+
+
+def test_extract_contact_from_detail_procuring_entity_with_no_contact_point():
+    detail = _detail_payload_with_parties([
+        {"name": "Some Unit / Ministerio de Defensa Nacional", "roles": ["procuringEntity"]},
+    ])
+    contact = extract_contact_from_detail(detail)
+    assert contact == {"contact_name": None, "contact_email": None, "contact_phone": None}

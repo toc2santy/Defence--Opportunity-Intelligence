@@ -2350,6 +2350,71 @@ a real `PATCH`/`GET` round trip AND a direct `psql` read of the raw
 column showing genuine ciphertext (`gAAAAABqs6PG...`, not
 `27AAAPL1234C1Z5`).
 
+### "Procurement contact not published" — a real, structural gap found on a user-reported tender, and what each source's data actually allows (2026-09-25)
+
+A user reported a real SAM.gov tender ("15--Skydio X10 Drone and
+Starter Kit for WAPA") whose Tender Briefing said no procurement
+contact was published, though one plainly exists on SAM.gov. Root
+cause, confirmed live against SAM.gov itself: ingestion is
+**insert-only**. The notice's real `pointOfContact` (Aumiller,
+Wesley M. / aumiller@wapa.gov) was added 6 days AFTER we first stored
+it, and our nightly pull only queries a `postedFrom`/`postedTo` window
+— once a notice ages out of SAM.gov's active search index it can never
+be re-fetched that way, so amendments after first ingestion were
+permanently invisible. Not a parser bug: `extract_contact()` handles
+this exact payload shape correctly.
+
+**SAM.gov — fixed, and made permanent** (`app/sam_gov_refresh.py`,
+migration 051 adds `ingestion_jobs.job_type`): SAM.gov's own website
+calls `sam.gov/api/prod/opps/v2/opportunities/{noticeId}`, which needs
+no `SAM_GOV_API_KEY` (so it sits outside the ~10/day quota) and still
+returns full detail for archived notices. A one-time backfill took
+SAM.gov programmes missing a contact from 354 to 15 (the 15 genuinely
+have none in SAM.gov's own current data; 1 notice had been deleted
+from SAM.gov entirely). Now also a weekly scheduled job (Sunday
+05:30 UTC, 200 rows/run, oldest-first) plus `POST /ingestion/sam-gov/
+refresh-contacts`. **Caveat, deliberately documented**: this is an
+unofficial, reverse-engineered endpoint with no stability guarantee —
+every failure (404, non-JSON, network) skips that one notice rather
+than aborting the run.
+
+**Colombia (SECOP II) — no fix possible, confirmed.** Pulled one real
+record from datos.gov.co and listed every field the dataset exposes:
+there is no phone/email/contact column at all (only entity name and
+city/department, already used for `contact_address`). 100% missing is
+the source's own limitation.
+
+**AusTender — intentionally empty, already documented.** Its only
+"contact" is the same shared `tenders@finance.gov.au` on every row;
+showing it would read as fabricated per-tender data
+(`australia_normalize.py` explains this).
+
+**Paraguay (DNCP) — a real code gap, fixed.** The per-candidate DETAIL
+fetch (`/ocds/record/{ocid}`, already made for classification and
+eligibility) carries OCDS `parties[].contactPoint` with real
+name/email/telephone for the `procuringEntity` party; the SEARCH
+response has no `parties` at all, which is why it was missed. New
+`extract_contact_from_detail` reads it from the payload already being
+fetched (no extra requests). Deliberately takes only the
+`procuringEntity` party — never the parent-ministry `buyer` (one shared
+contact for many units) or a `supplier`/`tenderer` (a competing
+bidder's contact). Existing rows were backfilled from the same
+endpoint. 4 new unit tests.
+
+**India CPPP — NOT investigated further.** It scrapes an HTML listing
+table with no contact column; any contact would need per-tender
+detail-page scraping, a much larger and more fragile change. Left as
+an open, separate decision.
+
+**EU TED** (1246/2309 missing) was only skimmed: its normalizer
+already reads `buyer-email`, so the missing share looks like genuine
+absence in the source rather than a parser gap — not verified row by
+row.
+
+Also fixed in passing: `run_sam_gov_ingestion`'s failure path lacked
+the `session.rollback()` before marking the job failed (same latent
+bug found earlier in `retention.py`).
+
 ### Three real Microsoft-specific OIDC interop bugs, found testing "Continue with Microsoft" against real accounts (2026-09-25)
 
 Google's OIDC implementation is close to the spec's happy path in

@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Optional
 
 import httpx
 
-from app.paraguay_normalize import extract_classification_from_detail, extract_eligibility_from_detail, normalize_batch
+from app.paraguay_normalize import extract_classification_from_detail, extract_contact_from_detail, extract_eligibility_from_detail, normalize_batch
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -178,13 +178,14 @@ async def fetch_classification_codes(ocids: list[str]) -> dict[str, dict]:
     run over one bad record.
 
     Also extracts eligibility (Eligibility/Backup Phase 1, 2026-09)
-    from the SAME payload — `eligibilityCriteria` lives at the exact
-    same `records[0].compiledRelease.tender` path this function's own
-    docstring already reads for classification, so no second detail
-    fetch is needed. Kept as one dict-of-dicts return (still keyed by
-    ocid) rather than two separate dicts, so a caller can never end up
-    with a classification result and an eligibility result computed
-    from two DIFFERENT fetch attempts of the same ocid.
+    and procurement contact (2026-09, a real user-reported "no
+    contact published" gap — see extract_contact_from_detail's own
+    docstring) from the SAME payload — all three live at or under
+    `records[0].compiledRelease`, so no extra detail fetch is needed
+    for any of them. Kept as one dict-of-dicts return (still keyed by
+    ocid) rather than separate dicts, so a caller can never end up
+    with results computed from two DIFFERENT fetch attempts of the
+    same ocid.
     """
     details: dict[str, dict] = {}
     async with httpx.AsyncClient(timeout=PARAGUAY_TIMEOUT_SECONDS, headers=PARAGUAY_HEADERS) as client:
@@ -207,6 +208,7 @@ async def fetch_classification_codes(ocids: list[str]) -> dict[str, dict]:
                         "code": extract_classification_from_detail(payload),
                         "set_aside_code": set_aside_code,
                         "set_aside_description": set_aside_description,
+                        **extract_contact_from_detail(payload),
                     }
                     break
             await asyncio.sleep(PARAGUAY_DETAIL_DELAY_SECONDS)
@@ -286,6 +288,9 @@ async def run_paraguay_ingestion(
             record["classification_scheme"] = "UNSPSC" if code else None
             record["set_aside_code"] = detail.get("set_aside_code")
             record["set_aside_description"] = detail.get("set_aside_description")
+            record["contact_name"] = detail.get("contact_name")
+            record["contact_email"] = detail.get("contact_email")
+            record["contact_phone"] = detail.get("contact_phone")
 
         for record in normalized:
             org_id = await get_or_create_government_buyer(
@@ -296,10 +301,12 @@ async def run_paraguay_ingestion(
                 text("""
                     insert into programmes
                         (name, country, organization_id, stage, source_id, external_ref, naics_code,
-                         set_aside_code, set_aside_description, ui_link, last_updated)
+                         set_aside_code, set_aside_description, ui_link,
+                         contact_name, contact_email, contact_phone, last_updated)
                     values
                         (:name, :country, :organization_id, :stage, :source_id, :external_ref, :classification_code,
-                         :set_aside_code, :set_aside_description, :ui_link, now())
+                         :set_aside_code, :set_aside_description, :ui_link,
+                         :contact_name, :contact_email, :contact_phone, now())
                     on conflict (source_id, external_ref) where external_ref is not null do update
                         set name = excluded.name,
                             organization_id = excluded.organization_id,
@@ -308,6 +315,9 @@ async def run_paraguay_ingestion(
                             set_aside_code = excluded.set_aside_code,
                             set_aside_description = excluded.set_aside_description,
                             ui_link = excluded.ui_link,
+                            contact_name = coalesce(excluded.contact_name, programmes.contact_name),
+                            contact_email = coalesce(excluded.contact_email, programmes.contact_email),
+                            contact_phone = coalesce(excluded.contact_phone, programmes.contact_phone),
                             last_updated = now()
                     returning id
                 """),
@@ -319,6 +329,9 @@ async def run_paraguay_ingestion(
                     "set_aside_code": record.get("set_aside_code"),
                     "set_aside_description": record.get("set_aside_description"),
                     "ui_link": record.get("ui_link"),
+                    "contact_name": record.get("contact_name"),
+                    "contact_email": record.get("contact_email"),
+                    "contact_phone": record.get("contact_phone"),
                 },
             )
             programme_id = str(upsert_result.scalar_one())

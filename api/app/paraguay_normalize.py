@@ -124,6 +124,14 @@ class NormalizedProgramme(TypedDict):
     set_aside_code: Optional[str]
     set_aside_description: Optional[str]
     ui_link: Optional[str]
+    # Filled in later, from the same per-candidate detail fetch that
+    # already supplies classification_code/set_aside_* — see
+    # extract_contact_from_detail's own docstring for why this can't
+    # come from normalize_record itself (the search endpoint's
+    # compiledRelease has no `parties` at all).
+    contact_name: Optional[str]
+    contact_email: Optional[str]
+    contact_phone: Optional[str]
 
 
 def is_defence_buyer(entity_name: Optional[str]) -> bool:
@@ -245,6 +253,40 @@ def extract_eligibility_from_detail(detail_payload: dict) -> tuple[Optional[str]
     return raw, raw
 
 
+def extract_contact_from_detail(detail_payload: dict) -> dict:
+    """
+    A real, live-found gap (2026-09, the same user-reported "no
+    contact published" question that led to the SAM.gov refresh
+    feature): the per-candidate DETAIL fetch (records[0].compiledRelease,
+    the same payload extract_classification_from_detail and
+    extract_eligibility_from_detail already read) carries a real
+    `parties` array with OCDS-standard `contactPoint` objects —
+    confirmed live against a real DNCP record — even though the
+    SEARCH endpoint's own compiledRelease never includes `parties` at
+    all, which is why this was missed originally.
+
+    Matches the party whose `roles` includes "procuringEntity" (the
+    actual buying unit issuing the tender, same entity
+    tender.procuringEntity already names) — not "buyer" (the parent
+    ministry, one shared contact for potentially many different
+    units' tenders) and not "supplier"/"tenderer" (a competing
+    bidder's own contact, not this platform's business to publish).
+    """
+    records = detail_payload.get("records") or []
+    if not records:
+        return {"contact_name": None, "contact_email": None, "contact_phone": None}
+    parties = (records[0].get("compiledRelease") or {}).get("parties") or []
+    procuring = next((p for p in parties if "procuringEntity" in (p.get("roles") or [])), None)
+    if not procuring:
+        return {"contact_name": None, "contact_email": None, "contact_phone": None}
+    contact_point = procuring.get("contactPoint") or {}
+    return {
+        "contact_name": (contact_point.get("name") or "").strip() or None,
+        "contact_email": (contact_point.get("email") or "").strip() or None,
+        "contact_phone": (contact_point.get("telephone") or "").strip() or None,
+    }
+
+
 def normalize_record(compiled_release: dict) -> Optional[NormalizedProgramme]:
     """
     Returns None for a release with no usable tender.id — a real,
@@ -306,6 +348,11 @@ def normalize_record(compiled_release: dict) -> Optional[NormalizedProgramme]:
         "set_aside_code": set_aside_code,
         "set_aside_description": set_aside_description,
         "ui_link": _ui_link_from_ocid(ocid),
+        # Same reasoning as classification_code/set_aside_* above —
+        # filled in later from the per-candidate detail fetch.
+        "contact_name": None,
+        "contact_email": None,
+        "contact_phone": None,
     }
 
 
