@@ -2371,13 +2371,18 @@ when no capability is analyst-confirmed, because confirming is a human
 analyst step in this platform's evidence model and the pop-up must
 not auto-confirm.
 
-**Latent bug found while building it, NOT fixed (separate decision):**
-`POST /products/{id}/classify` upserts with `on conflict ... set
-classified_by = 'ai_suggested'`, so re-clicking the existing "Run
-Capability Classification" button silently UN-confirms a capability an
-analyst already confirmed. The new pop-up avoids it by skipping
-`/classify` whenever a confirmed capability exists, but the old button
-still has the problem.
+**Latent bug found while building it, then FIXED:** `POST
+/products/{id}/classify` upserted with `on conflict ... set
+classified_by = 'ai_suggested'`, so re-clicking "Run Capability
+Classification" silently UN-confirmed a capability an analyst had
+already confirmed (and pointed it at a fresh unreviewed evidence row,
+orphaning the reviewed one). The route now looks up analyst-confirmed
+capabilities first and skips them entirely (no upsert, no new evidence
+row); they are still returned in `candidates` flagged
+`already_confirmed: true`. Unconfirmed suggestions refresh as before.
+2 regression tests in `tests/test_classify_keeps_confirmation.py`. The
+pop-up still skips `/classify` when something is confirmed, which now
+just saves a call.
 
 Verified with the real API chain on the isolated stack (classify ->
 confirm -> match -> report: 10 engine blocks, real headlines/notes) and

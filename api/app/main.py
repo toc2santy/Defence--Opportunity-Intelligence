@@ -2506,7 +2506,24 @@ async def classify_product(
         )
     source_id = str(source_row.id)
 
+    # A capability an analyst has already confirmed is left completely
+    # alone (2026-10): the upsert below sets classified_by back to
+    # 'ai_suggested' on conflict, so re-running classification used to
+    # silently UN-confirm it (and point it at a fresh unreviewed
+    # evidence row, orphaning the one the analyst actually reviewed).
+    # Confirming is a deliberate human step; a re-run of an automated
+    # classifier must never undo it. Skipped candidates are still
+    # returned, flagged, so the caller sees the full classifier output.
+    confirmed_result = await session.execute(
+        text("select capability_id from product_capabilities where product_id = :pid and classified_by = 'analyst'"),
+        {"pid": product_id},
+    )
+    already_confirmed = {str(r.capability_id) for r in confirmed_result}
+
     for c in candidates:
+        c["already_confirmed"] = str(c["capability_id"]) in already_confirmed
+        if c["already_confirmed"]:
+            continue
         claim = f"Matched keywords: {', '.join(c['matched_keywords'])} (score {c['score']})"
         ev_result = await session.execute(
             text("""
