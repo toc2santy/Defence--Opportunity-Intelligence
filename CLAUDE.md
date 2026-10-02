@@ -2350,6 +2350,42 @@ a real `PATCH`/`GET` round trip AND a direct `psql` read of the raw
 column showing genuine ciphertext (`gAAAAABqs6PG...`, not
 `27AAAPL1234C1Z5`).
 
+### "Run All 10 Engines" live progress pop-up (2026-10-02, frontend only)
+
+Product detail page gained a primary "Run All 10 Engines" button
+(`runAllEnginesModal` in the frontend HTML, which lives OUTSIDE this
+repo) that shows engines 01-10 turn by turn and ends in "Done".
+Deliberately NOT a fake timer: it is driven by the three real calls —
+`/capabilities` (+ `/classify` only when needed) for engine 01,
+`/match-programmes` for 02-03, `/intel-report` for the other seven —
+a row shows a spinner only while its call is in flight, and the text
+beside each tick is the server's own `headline` for that engine (via
+`textContent`, so product/buyer names can't inject HTML). An engine
+whose report block has `ran: false` shows a dash plus its real
+`note`, not a tick. The ~10s target only PACES the reveal of results
+that already exist (150-800ms per engine); it never delays or fakes
+work, and slow real calls just make the reveal fast.
+
+It stops honestly — marking 02-10 "needs a confirmed capability" —
+when no capability is analyst-confirmed, because confirming is a human
+analyst step in this platform's evidence model and the pop-up must
+not auto-confirm.
+
+**Latent bug found while building it, NOT fixed (separate decision):**
+`POST /products/{id}/classify` upserts with `on conflict ... set
+classified_by = 'ai_suggested'`, so re-clicking the existing "Run
+Capability Classification" button silently UN-confirms a capability an
+analyst already confirmed. The new pop-up avoids it by skipping
+`/classify` whenever a confirmed capability exists, but the old button
+still has the problem.
+
+Verified with the real API chain on the isolated stack (classify ->
+confirm -> match -> report: 10 engine blocks, real headlines/notes) and
+by executing the actual modal function under Node with a stubbed DOM
+for all three paths (already confirmed; confirmed after classify;
+nothing confirmed -> pauses). Not clicked in a real browser — none is
+available in this environment.
+
 ### "Procurement contact not published" — a real, structural gap found on a user-reported tender, and what each source's data actually allows (2026-09-25)
 
 A user reported a real SAM.gov tender ("15--Skydio X10 Drone and
