@@ -3923,6 +3923,42 @@ same confirmed-capability query `programme_matching.py` uses for
 matching, so "your competitors" and "what you'd match against" never
 drift apart into two different notions of "your capabilities."
 
+## Self-expanding taxonomy (2026-10, migration 052)
+
+Measured live: of 11,565 stored tenders only ~53% were reachable by ANY
+capability (a code mapping makes a tender a *candidate*; a title keyword only
+*scores* it). `app/taxonomy_learning.py` mines the stored tenders so the
+taxonomy grows without a migration:
+
+- **Keywords** (global `capability_taxonomy_keywords`, new `origin` column):
+  title phrases specific to ONE capability's code-mapped tenders. Strict tier
+  is added automatically at **weight 1** (`origin='learned'`); weaker ones go to
+  `taxonomy_learning_suggestions` (status `pending`) for a platform admin.
+  Max 15 new/capability/run, 150 learned/capability.
+- **Codes**: an UNMAPPED classification code whose titles keep scoring for one
+  capability (against CURATED keywords only) is suggested, **never automatic**
+  — a mapped code pulls every tender carrying it into every product's candidate
+  set. Approval writes to the naics/cpv/unspsc table chosen by source.
+- Learns ONLY from public tender text, never tenant product text (the taxonomy is
+  global; tenant text would leak across tenants). Tenders whose code maps to
+  several capabilities are not evidence. Learned keywords never feed code
+  suggestions (no drift loop). Deleting/rejecting a learned keyword marks it
+  rejected so it is never re-learned.
+- Filters that exist because the first dry-run produced junk: TED
+  "Country – CPV label – title" prefix stripped, phrases can't start/end with a
+  function word, SAM.gov width-truncated stubs ("aircr") dropped, single words
+  < 5 chars never, auto tier needs >=8 buyers or >=2 sources.
+- Triggers: daily 07:00 UTC job, after `POST /products/{id}/match-programmes`
+  (background, debounced 6h, `TAXONOMY_LEARN_AFTER_MATCH`), and manual
+  `POST /admin/taxonomy/learn/run?dry_run=true|false`. Review via
+  `GET /admin/taxonomy/suggestions`, `POST .../{id}/approve|reject`. Health in
+  `GET /admin/backup/status` -> `taxonomy_learning`.
+- First real run (2026-10-06): 1 auto-added keyword, 31 pending, 3 code
+  suggestions. Honest limit: most of the unreached ~46% is civilian (hospital,
+  signage, fire engines) and no keyword can fix that; the biggest real gaps are
+  missing capabilities (ammunition/weapons, fire-rescue/law-enforcement,
+  generic vehicle spares, training/simulation) — those need a human to add.
+
 ## Known limitations worth remembering while working here
 
 - The scheduler (APScheduler) only runs while the API process is up — no

@@ -20,7 +20,7 @@ from typing import Optional
 import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -57,6 +57,7 @@ from app.backup import (
     run_restore_drill, restore_drill_health, check_staleness_and_alert,
 )
 from app.retention import run_retention_purge, retention_health
+from app.taxonomy_learning import run_taxonomy_learning, learning_health, mapping_table_for_source
 from app.signup_policy import parse_allowlist, is_allowed
 from app.oidc import (
     get_provider_config, discover_provider, make_pkce_pair, make_state_token,
@@ -441,6 +442,47 @@ async def _run_scheduled_sam_gov_contact_refresh():
             print(f"[scheduled SAM.gov contact refresh] failed: {e}")
 
 
+async def _run_scheduled_taxonomy_learning():
+    async with SessionLocal() as session:
+        try:
+            result = await run_taxonomy_learning(session, triggered_by="scheduler")
+            print(f"[scheduled taxonomy learning] {result}")
+        except Exception as e:
+            print(f"[scheduled taxonomy learning] failed: {e}")
+
+
+# A product search is the moment the stored tenders have just been
+# looked at against a customer's need, so it is a natural time to let
+# the taxonomy learn from them (2026-10). Debounced: the mining pass
+# reads every stored tender, and several searches in a row would
+# otherwise repeat identical work. Runs in its own session AFTER the
+# request has finished; it never touches the tenant's text (see
+# app/taxonomy_learning.py — the taxonomy is global).
+TAXONOMY_LEARN_AFTER_MATCH = os.environ.get("TAXONOMY_LEARN_AFTER_MATCH", "true").lower() == "true"
+TAXONOMY_LEARN_MIN_INTERVAL_SECONDS = int(os.environ.get("TAXONOMY_LEARN_MIN_INTERVAL_SECONDS", str(6 * 3600)))
+_taxonomy_learn_last_started = 0.0
+_taxonomy_learn_running = False
+
+
+async def _learn_after_match():
+    global _taxonomy_learn_last_started, _taxonomy_learn_running
+    import time
+    if not TAXONOMY_LEARN_AFTER_MATCH or _taxonomy_learn_running:
+        return
+    if time.monotonic() - _taxonomy_learn_last_started < TAXONOMY_LEARN_MIN_INTERVAL_SECONDS and _taxonomy_learn_last_started:
+        return
+    _taxonomy_learn_running = True
+    _taxonomy_learn_last_started = time.monotonic()
+    try:
+        async with SessionLocal() as session:
+            result = await run_taxonomy_learning(session, triggered_by="product_search")
+            print(f"[taxonomy learning after product search] {result}")
+    except Exception as e:
+        print(f"[taxonomy learning after product search] failed: {e}")
+    finally:
+        _taxonomy_learn_running = False
+
+
 @app.on_event("startup")
 async def start_scheduler():
     await _reap_orphaned_ingestion_jobs()
@@ -517,6 +559,17 @@ async def start_scheduler():
         hour=5,
         minute=30,
         id="scheduled_sam_gov_contact_refresh",
+        replace_existing=True,
+    )
+    # Daily 07:00 UTC — after the nightly ingestions have had hours to
+    # bring in new tenders, so each new tender can teach the taxonomy
+    # the same day (2026-10, app/taxonomy_learning.py).
+    scheduler.add_job(
+        _run_scheduled_taxonomy_learning,
+        "cron",
+        hour=7,
+        minute=0,
+        id="scheduled_taxonomy_learning",
         replace_existing=True,
     )
     scheduler.start()
@@ -3198,6 +3251,7 @@ async def get_backup_status(
         "backup": await backup_health(session),
         "restore_drill": await restore_drill_health(session),
         "retention_purge": await retention_health(session),
+        "taxonomy_learning": await learning_health(session),
     }
 
 
@@ -3238,6 +3292,140 @@ async def trigger_retention_purge(
         return await run_retention_purge(session, triggered_by="manual")
     except Exception as e:
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, f"Retention purge failed: {e}")
+
+
+# ---------------------------------------------------------------
+# Self-expanding taxonomy (2026-10) — see app/taxonomy_learning.py.
+# Platform-admin only: it reads/writes the shared global taxonomy.
+# ---------------------------------------------------------------
+@app.post("/admin/taxonomy/learn/run")
+async def trigger_taxonomy_learning(
+    dry_run: bool = False,
+    user: TokenPayload = Depends(require_platform_admin),
+    session: AsyncSession = Depends(get_tenant_session),
+):
+    """Manual on-demand run. `dry_run=true` returns what WOULD be learned (top suggestions with example tenders) and changes nothing."""
+    try:
+        return await run_taxonomy_learning(session, triggered_by="manual", dry_run=dry_run)
+    except Exception as e:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, f"Taxonomy learning failed: {e}")
+
+
+@app.get("/admin/taxonomy/suggestions")
+async def list_taxonomy_suggestions(
+    status_filter: str = "pending",
+    kind: Optional[str] = None,
+    limit: int = 100,
+    user: TokenPayload = Depends(require_platform_admin),
+    session: AsyncSession = Depends(get_tenant_session),
+):
+    if status_filter not in ("pending", "auto_added", "approved", "rejected"):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "invalid status_filter")
+    if kind not in (None, "keyword", "code"):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "invalid kind")
+    rows = await session.execute(
+        text("""
+            select s.id, s.kind, ct.code as capability_code, s.value, s.source_name, s.status,
+                   s.support_count, s.distinct_buyers, s.precision_pct, s.lift, s.examples,
+                   s.first_seen, s.decided_at
+            from taxonomy_learning_suggestions s
+            join capability_taxonomy ct on ct.id = s.capability_id
+            where s.status = :st and (cast(:kind as text) is null or s.kind = :kind)
+            order by s.support_count desc
+            limit :lim
+        """),
+        {"st": status_filter, "kind": kind, "lim": max(1, min(limit, 500))},
+    )
+    return [dict(r._mapping) for r in rows]
+
+
+class SuggestionApproveIn(BaseModel):
+    weight: int = 1
+
+
+@app.post("/admin/taxonomy/suggestions/{suggestion_id}/approve")
+async def approve_taxonomy_suggestion(
+    suggestion_id: str,
+    body: SuggestionApproveIn = SuggestionApproveIn(),
+    user: TokenPayload = Depends(require_platform_admin),
+    session: AsyncSession = Depends(get_tenant_session),
+):
+    if not (1 <= body.weight <= 5):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "weight must be between 1 and 5")
+    row = (await session.execute(
+        text("select id, kind, capability_id, value, source_name, status from taxonomy_learning_suggestions where id = :id"),
+        {"id": suggestion_id},
+    )).first()
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Suggestion not found")
+    if row.status != "pending":
+        raise HTTPException(status.HTTP_409_CONFLICT, f"Suggestion is already {row.status}")
+
+    keyword_id = None
+    if row.kind == "keyword":
+        keyword_id = (await session.execute(
+            text("""
+                insert into capability_taxonomy_keywords (capability_id, keyword, weight, origin)
+                values (:cid, :kw, :w, 'learned') returning id
+            """),
+            {"cid": row.capability_id, "kw": row.value, "w": body.weight},
+        )).scalar_one()
+    else:
+        table, column = mapping_table_for_source(row.source_name)
+        await session.execute(
+            text(f"insert into {table} (capability_id, {column}) values (:cid, :code) on conflict do nothing"),
+            {"cid": row.capability_id, "code": row.value},
+        )
+    await session.execute(
+        text("""
+            update taxonomy_learning_suggestions
+            set status = 'approved', keyword_id = :kid, decided_by = :uid, decided_at = now()
+            where id = :id
+        """),
+        {"id": suggestion_id, "kid": keyword_id, "uid": user.sub},
+    )
+    await write_audit_log(
+        session, user.tenant_id, user.sub, "taxonomy_suggestion.approved",
+        "taxonomy_learning_suggestions", suggestion_id, None,
+        {"kind": row.kind, "value": row.value, "weight": body.weight if row.kind == "keyword" else None},
+    )
+    await session.commit()
+    return {"status": "approved", "kind": row.kind, "value": row.value}
+
+
+@app.post("/admin/taxonomy/suggestions/{suggestion_id}/reject")
+async def reject_taxonomy_suggestion(
+    suggestion_id: str,
+    user: TokenPayload = Depends(require_platform_admin),
+    session: AsyncSession = Depends(get_tenant_session),
+):
+    row = (await session.execute(
+        text("select kind, value, status, keyword_id from taxonomy_learning_suggestions where id = :id"),
+        {"id": suggestion_id},
+    )).first()
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Suggestion not found")
+    if row.status == "rejected":
+        return {"status": "rejected"}
+    # Rejecting an already-live learned keyword retracts it too.
+    if row.status == "auto_added" and row.keyword_id is not None:
+        await session.execute(
+            text("delete from capability_taxonomy_keywords where id = :kid"), {"kid": row.keyword_id}
+        )
+    await session.execute(
+        text("""
+            update taxonomy_learning_suggestions
+            set status = 'rejected', decided_by = :uid, decided_at = now()
+            where id = :id
+        """),
+        {"id": suggestion_id, "uid": user.sub},
+    )
+    await write_audit_log(
+        session, user.tenant_id, user.sub, "taxonomy_suggestion.rejected",
+        "taxonomy_learning_suggestions", suggestion_id, {"status": row.status}, {"status": "rejected"},
+    )
+    await session.commit()
+    return {"status": "rejected"}
 
 
 # ---------------------------------------------------------------
@@ -3473,6 +3661,7 @@ async def get_partners(
 @app.post("/products/{product_id}/match-programmes")
 async def match_programmes_for_product(
     product_id: str,
+    background_tasks: BackgroundTasks,
     user: TokenPayload = Depends(require_role("admin", "analyst")),
     session: AsyncSession = Depends(get_tenant_session),
 ):
@@ -3524,6 +3713,10 @@ async def match_programmes_for_product(
         "product", product_id, None, {"match_count": len(persisted)},
     )
     await session.commit()
+    # Let the taxonomy learn from the stored tenders now that a real
+    # product search has just run (debounced; own session; after the
+    # response is sent — see _learn_after_match).
+    background_tasks.add_task(_learn_after_match)
     return {"product_id": product_id, "matches": persisted, "trace": match_result["trace"]}
 
 
@@ -4298,6 +4491,18 @@ async def remove_taxonomy_keyword(
     user: TokenPayload = Depends(require_platform_admin),
     session: AsyncSession = Depends(get_tenant_session),
 ):
+    # A learned keyword that a platform admin removes must never be
+    # re-learned on the next run — mark its suggestion rejected BEFORE
+    # the delete (the FK nulls keyword_id on delete, which would lose
+    # the link).
+    await session.execute(
+        text("""
+            update taxonomy_learning_suggestions
+            set status = 'rejected', decided_by = :uid, decided_at = now()
+            where keyword_id = :kid
+        """),
+        {"kid": keyword_id, "uid": user.sub},
+    )
     result = await session.execute(
         text("delete from capability_taxonomy_keywords where id = :kid returning capability_id"),
         {"kid": keyword_id},
