@@ -5886,11 +5886,17 @@ function renderResources(){
   </div>`;
 }
 
+// The About page describes the vendor. Syas's own accounts (and a visitor who
+// is not signed in, i.e. the public site) read "company"; a customer tenant that
+// is signed in reads "software", because to them it is the product they use.
+const VENDOR_NAME_RE = /\bsyas\b/i;
 function renderAbout(){
+  const isVendorView = !currentUser || VENDOR_NAME_RE.test(currentUser.company_name || '');
+  const aboutNoun = isVendorView ? 'company' : 'software';
   return `
   <div class="section">
     <div class="eyebrow">About</div>
-    <h1>A defence business intelligence company.</h1>
+    <h1>A defence business intelligence ${aboutNoun}.</h1>
     <p class="lede">We exist to bridge engineering, intelligence, market understanding and business development.</p>
   </div>
   <div class="section" id="abt-bridge">
