@@ -3988,6 +3988,41 @@ capabilities). Reachable tenders (any capability by code or keyword) went
 - Tests: `test_missing_capabilities.py` seeds its own tender per capability, so
   it passes on a fresh DB.
 
+## Keyword-only matching (2026-10, migration 054) — built, OFF by default
+
+A tender used to be a match CANDIDATE only if its classification code was mapped
+to the product's capability; keywords just re-scored it, so "Watercraft Spare
+Parts" under an unmapped code was invisible. Now, when `KEYWORD_ONLY_MATCHING=true`
+(default **false**; read on every call, see `programme_matching.keyword_only_enabled`),
+a tender whose TITLE carries a keyword flagged `capability_taxonomy_keywords.standalone`
+becomes a candidate on its own.
+
+- `standalone` is set only by a platform admin (`PATCH /admin/taxonomy/keywords/{id}`
+  or `POST` with `standalone`); the learner (migration 052) and approved suggestions
+  never set it, so auto-learned keywords cannot create candidates by themselves.
+- Keyword-only matches are capped at **medium** confidence, carry
+  `match_basis='keyword'` (stored on `opportunities.match_basis`, shown as a
+  "Keyword match" tag in the opportunities list) and `naics_match=false`. A tender
+  already matched through a code keeps its code-backed match. Trace shows
+  `keyword_only_enabled` / `keyword_only_matches`.
+- Precision is curated per keyword, not by a score threshold: simulating a plain
+  threshold showed one generic word ("surveillance", "naval") pulls in civilian CCTV
+  and unrelated Colombian tyre tenders. Initial flags: 58 keywords on the three
+  migration-053 capabilities only (18 spares, 21 weapons, 19 training).
+- Tightened after a precision read of the first sample: English 'ammunition',
+  'munition(s)', 'small arms', 'explosive ordnance' and bare 'simulator(s)' are NOT
+  flagged (they name plants, services, EOD vehicles, ultrasound/GNSS test simulators,
+  medical training dolls; ~50-60% right). Foreign-language forms and SPARES stayed.
+  Cost: weapons/training keyword-only reach shrank to 8 and 4 tenders. Spares is
+  the bulk (421 pairs).
+- NOT done on purpose: a "two keywords summing to >= 5" alternative route; it
+  readmits the civilian-CCTV false positives ('surveillance system' = 3+2).
+- Prefilter is SQL `LIKE ANY` with non-ASCII chars turned into `_` (SQL has no
+  `fold()`); it can only over-select, `score_text()` makes the final call. Fine at
+  11k tenders; add a `pg_trgm` GIN index on `lower(name)` before it grows 10x+.
+- Before turning the flag on: a human reviews `review/keyword_only_sample.md`
+  (Y/N per row, target >= 85% precision). `review/` is a local, untracked folder.
+
 ## Known limitations worth remembering while working here
 
 - The scheduler (APScheduler) only runs while the API process is up — no

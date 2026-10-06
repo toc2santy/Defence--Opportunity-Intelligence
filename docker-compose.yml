@@ -90,6 +90,8 @@ services:
       # back to. Same "listed here or Compose won't pass it through"
       # rule as every other var on this page.
       API_BASE_URL: ${API_BASE_URL:-http://localhost:8000}
+      # Keyword-only matching (migration 054) — off unless set to true.
+      KEYWORD_ONLY_MATCHING: ${KEYWORD_ONLY_MATCHING:-false}
       # Forgot Password email — same "listed here or Compose won't
       # pass it through" gotcha as FRONTEND_ORIGIN above. Blank
       # SMTP_HOST is fine: the reset link just gets logged instead of

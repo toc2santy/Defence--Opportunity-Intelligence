@@ -3689,12 +3689,13 @@ async def match_programmes_for_product(
         upsert_result = await session.execute(
             text("""
                 insert into opportunities
-                    (tenant_id, product_id, programme_id, organization_id, score, confidence, stage, next_action)
+                    (tenant_id, product_id, programme_id, organization_id, score, confidence, stage, next_action, match_basis)
                 values
-                    (:tenant_id, :product_id, :programme_id, :organization_id, :score, :confidence, 'lead', :next_action)
+                    (:tenant_id, :product_id, :programme_id, :organization_id, :score, :confidence, 'lead', :next_action, :match_basis)
                 on conflict (product_id, programme_id) do update
                     set score = excluded.score,
                         confidence = excluded.confidence,
+                        match_basis = excluded.match_basis,
                         updated_at = now()
                 returning id, stage
             """),
@@ -3702,7 +3703,7 @@ async def match_programmes_for_product(
                 "tenant_id": user.tenant_id, "product_id": product_id,
                 "programme_id": m["programme_id"], "organization_id": m["organization_id"],
                 "score": m["total_score"], "confidence": m["confidence"],
-                "next_action": initial_next_action,
+                "next_action": initial_next_action, "match_basis": m.get("match_basis", "code"),
             },
         )
         row = upsert_result.first()
@@ -4219,7 +4220,7 @@ async def list_opportunities(
 ):
     result = await session.execute(
         text("""
-            select o.id, o.score, o.confidence, o.stage, o.next_action, o.created_at,
+            select o.id, o.score, o.confidence, o.stage, o.next_action, o.created_at, o.match_basis,
                    o.programme_id, o.product_id, o.organization_id, p.name as product_name, pr.name as programme_name, org.name as organization_name,
                    pr.set_aside_code, pr.set_aside_description, pr.response_deadline,
                    pr.country, pr.naics_code, s.name as source_name, pr.ui_link,
@@ -4401,7 +4402,7 @@ async def list_taxonomy_keywords(
 ):
     result = await session.execute(
         text("""
-            select id, keyword, weight
+            select id, keyword, weight, origin, standalone
             from capability_taxonomy_keywords
             where capability_id = :cid
             order by weight desc, keyword
@@ -4450,6 +4451,9 @@ async def create_taxonomy_entry(
 class TaxonomyKeywordIn(BaseModel):
     keyword: str
     weight: int = 1
+    # Whether this keyword ALONE may make a tender a match candidate
+    # (keyword-only matching, migration 054). Only a person sets it.
+    standalone: bool = False
 
 
 @app.post("/admin/taxonomy/{capability_id}/keywords", status_code=201)
@@ -4470,11 +4474,12 @@ async def add_taxonomy_keyword(
 
     result = await session.execute(
         text("""
-            insert into capability_taxonomy_keywords (capability_id, keyword, weight)
-            values (:cid, :keyword, :weight)
+            insert into capability_taxonomy_keywords (capability_id, keyword, weight, standalone)
+            values (:cid, :keyword, :weight, :standalone)
             returning id
         """),
-        {"cid": capability_id, "keyword": body.keyword.lower().strip(), "weight": body.weight},
+        {"cid": capability_id, "keyword": body.keyword.lower().strip(), "weight": body.weight,
+         "standalone": body.standalone},
     )
     new_id = result.scalar_one()
     await write_audit_log(
@@ -4483,6 +4488,45 @@ async def add_taxonomy_keyword(
     )
     await session.commit()
     return {"id": str(new_id)}
+
+
+class TaxonomyKeywordPatch(BaseModel):
+    weight: Optional[int] = None
+    standalone: Optional[bool] = None
+
+
+@app.patch("/admin/taxonomy/keywords/{keyword_id}")
+async def update_taxonomy_keyword(
+    keyword_id: str,
+    body: TaxonomyKeywordPatch,
+    user: TokenPayload = Depends(require_platform_admin),
+    session: AsyncSession = Depends(get_tenant_session),
+):
+    """Change a keyword's weight and/or its `standalone` flag (may it alone make a tender a match candidate — migration 054). Platform admin only: this is shared global data."""
+    if body.weight is None and body.standalone is None:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "nothing to update")
+    if body.weight is not None and not (1 <= body.weight <= 5):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "weight must be between 1 and 5")
+    before = (await session.execute(
+        text("select weight, standalone from capability_taxonomy_keywords where id = :kid"), {"kid": keyword_id}
+    )).first()
+    if before is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Keyword not found")
+    await session.execute(
+        text("""
+            update capability_taxonomy_keywords
+            set weight = coalesce(:weight, weight), standalone = coalesce(:standalone, standalone)
+            where id = :kid
+        """),
+        {"kid": keyword_id, "weight": body.weight, "standalone": body.standalone},
+    )
+    await write_audit_log(
+        session, user.tenant_id, user.sub, "taxonomy_keyword.updated",
+        "capability_taxonomy_keywords", keyword_id,
+        {"weight": before.weight, "standalone": before.standalone}, body.model_dump(exclude_none=True),
+    )
+    await session.commit()
+    return {"status": "updated"}
 
 
 @app.delete("/admin/taxonomy/keywords/{keyword_id}")

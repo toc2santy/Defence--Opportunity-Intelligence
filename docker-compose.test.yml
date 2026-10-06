@@ -97,6 +97,9 @@ services:
       # meaningless placeholders (the fake provider doesn't validate
       # secrets beyond client_id/redirect_uri matching what /authorize
       # issued the code for), never real credentials.
+      # Keyword-only matching (migration 054) is OFF by default in real
+      # deployments; the test stack turns it on so the feature is exercised.
+      KEYWORD_ONLY_MATCHING: "true"
       OIDC_TESTPROVIDER_CLIENT_ID: test-client-id
       OIDC_TESTPROVIDER_CLIENT_SECRET: test-client-secret
       OIDC_TESTPROVIDER_ISSUER: http://fake-oidc-test:9100

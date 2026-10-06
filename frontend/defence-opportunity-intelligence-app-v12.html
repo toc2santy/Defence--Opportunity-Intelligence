@@ -3990,6 +3990,7 @@ async function loadOpportunitiesDashboard(){
               ${o.programme_name || '—'}
               <br><span class="small" style="color:var(--text-faint);">${sourceOf(o)}${o.country ? ` · ${o.country}` : ''}${o.organization_name ? ` · ${o.organization_name}` : ''}</span>
               ${remark ? `<br><span class="small" style="color:${remark.tone};">⚠ ${remark.text}</span>` : ''}
+              ${o.match_basis === 'keyword' ? `<br><span class="tag" style="color:var(--text-faint);border-color:var(--border);" title="Matched on the tender's title keywords only — this tender's classification code is not mapped to your capability, so it is never shown as high confidence. Check it manually.">Keyword match</span>` : ''}
               ${o.has_action_path === false ? `<br><span class="tag" style="color:var(--text-faint);border-color:var(--border);" title="This source hasn't published an apply link or a procurement contact for this notice yet — open it to search for it manually.">No action path yet</span>` : ''}
               ${o.set_aside_code ? `<br><span class="tag" style="color:var(--signal);border-color:var(--signal);">${o.set_aside_description || o.set_aside_code}</span>` : ''}
             </td>

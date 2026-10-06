@@ -22,10 +22,12 @@ This is the first code in the whole project that populates the
 Phase 0 schema but nothing has ever written to it until now.
 """
 
+import os
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.scoring import score_text, MINIMUM_SCORE_TO_SUGGEST
+from app.scoring import fold, score_text, MINIMUM_SCORE_TO_SUGGEST
 from app.matching_scoring import combine_score
 from app.classification import classify_text
 from app.cppp_india_normalize import INDIA_DEFENCE_ORG_CODE
@@ -101,6 +103,51 @@ async def _load_taxonomy_keywords_for_capability(session: AsyncSession, capabili
     return result.all()
 
 
+def keyword_only_enabled() -> bool:
+    """
+    Keyword-only matching (2026-10, migration 054) is OFF unless
+    KEYWORD_ONLY_MATCHING=true. Read on every call, not at import, so it
+    can be switched without a code change and tested both ways.
+    """
+    return os.environ.get("KEYWORD_ONLY_MATCHING", "false").strip().lower() == "true"
+
+
+async def _load_standalone_keywords(session: AsyncSession, capability_id: str) -> list[str]:
+    result = await session.execute(
+        text("select keyword from capability_taxonomy_keywords where capability_id = :cid and standalone"),
+        {"cid": capability_id},
+    )
+    return [r.keyword for r in result]
+
+
+def _like_pattern(keyword: str) -> str:
+    """
+    SQL prefilter pattern for one keyword. Tender titles carry accents
+    inconsistently ("MUNICION" vs "MUNICIÓN") and scoring.fold() makes both
+    equal in Python, but SQL has no fold, so every non-ASCII character becomes
+    a single-character wildcard. That can only OVER-select; the exact
+    word-boundary re-check in score_text() makes the final decision.
+    """
+    body = "".join(c if c.isascii() else "_" for c in keyword.lower())
+    body = body.replace("\\", "\\\\").replace("%", "\\%")
+    return f"%{body}%"
+
+
+async def _load_keyword_only_candidates(session: AsyncSession, standalone_keywords: list[str]):
+    result = await session.execute(
+        text("""
+            select p.id, p.name, p.country, p.organization_id, p.stage, p.naics_code, p.source_id,
+                   p.set_aside_code, p.set_aside_description, p.response_deadline,
+                   s.name as source_name
+            from programmes p
+            left join sources s on s.id = p.source_id
+            where lower(p.name) like any(:patterns)
+        """),
+        {"patterns": [_like_pattern(k) for k in standalone_keywords]},
+    )
+    return result.all()
+
+
 async def _load_unspsc_prefixes(session: AsyncSession, capability_id: str) -> set[str]:
     """
     UNSPSC (CanadaBuys) is matched by PREFIX, not by exact equality,
@@ -141,7 +188,9 @@ async def _load_candidate_programmes(
     return result.all()
 
 
-async def match_product_to_programmes(session: AsyncSession, product_id: str) -> dict:
+async def match_product_to_programmes(
+    session: AsyncSession, product_id: str, keyword_only: bool | None = None
+) -> dict:
     """
     Returns {"matches": [...], "trace": {...}} — the trace is not
     decorative. Every number in it is something this function itself
@@ -153,6 +202,8 @@ async def match_product_to_programmes(session: AsyncSession, product_id: str) ->
     footing as everything else in this project.
     """
     capabilities = await _load_confirmed_capabilities(session, product_id)
+    use_keyword_only = keyword_only_enabled() if keyword_only is None else keyword_only
+    keyword_only_matches: dict[str, dict] = {}
     matches = []
     examined_programme_ids: set[str] = set()
     sources_touched: set[str] = set()
@@ -249,13 +300,69 @@ async def match_product_to_programmes(session: AsyncSession, product_id: str) ->
                 "matched_keywords": matched_keywords,
                 "total_score": combined["total_score"],
                 "confidence": combined["confidence"],
+                "match_basis": "code",
             })
+
+        # Keyword-only candidates (migration 054) — tenders whose code is NOT
+        # mapped to this capability but whose title carries a keyword a person
+        # flagged `standalone`. See the migration header for why precision is
+        # curated per keyword rather than set by a score threshold.
+        if use_keyword_only:
+            standalone = await _load_standalone_keywords(session, cap.capability_id)
+            if standalone:
+                standalone_folded = {fold(k) for k in standalone}
+                code_candidate_ids = {str(p.id) for p in candidate_programmes}
+                for prog in await _load_keyword_only_candidates(session, standalone):
+                    pid = str(prog.id)
+                    if pid in code_candidate_ids:
+                        continue
+                    scored = score_text(prog.name, keyword_rows)
+                    if not scored:
+                        continue
+                    matched = scored[0]["matched_keywords"]
+                    if not any(fold(k) in standalone_folded for k in matched):
+                        continue
+                    combined = combine_score(False, scored[0]["score"])
+                    if combined["total_score"] < MINIMUM_SCORE_TO_SUGGEST:
+                        continue
+                    examined_programme_ids.add(pid)
+                    if prog.source_name:
+                        sources_touched.add(prog.source_name)
+                    # No classification code backs this, so it is never "high".
+                    confidence = "medium" if combined["confidence"] == "high" else combined["confidence"]
+                    candidate = {
+                        "programme_id": pid,
+                        "programme_name": prog.name,
+                        "capability_id": str(cap.capability_id),
+                        "capability_code": cap.code,
+                        "organization_id": str(prog.organization_id) if prog.organization_id else None,
+                        "naics_match": False,
+                        "matched_classification_code": None,
+                        "set_aside_code": prog.set_aside_code,
+                        "set_aside_description": prog.set_aside_description,
+                        "response_deadline": prog.response_deadline,
+                        "keyword_score": scored[0]["score"],
+                        "matched_keywords": matched,
+                        "total_score": combined["total_score"],
+                        "confidence": confidence,
+                        "match_basis": "keyword",
+                    }
+                    best = keyword_only_matches.get(pid)
+                    if best is None or candidate["total_score"] > best["total_score"]:
+                        keyword_only_matches[pid] = candidate
+
+    # A tender already matched through a code (for ANY of the product's
+    # capabilities) keeps that stronger, code-backed match.
+    already = {m["programme_id"] for m in matches}
+    matches.extend(m for pid, m in keyword_only_matches.items() if pid not in already)
 
     matches.sort(key=lambda m: m["total_score"], reverse=True)
     return {
         "matches": matches,
         "trace": {
             "capabilities_checked": capability_trace,
+            "keyword_only_enabled": use_keyword_only,
+            "keyword_only_matches": sum(1 for pid in keyword_only_matches if pid not in already),
             "programmes_examined": len(examined_programme_ids),
             "sources_touched": sorted(sources_touched),
             "opportunities_matched": len(matches),
