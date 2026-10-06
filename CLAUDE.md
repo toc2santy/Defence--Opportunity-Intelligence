@@ -3959,6 +3959,35 @@ taxonomy grows without a migration:
   missing capabilities (ammunition/weapons, fire-rescue/law-enforcement,
   generic vehicle spares, training/simulation) — those need a human to add.
 
+## Three new capabilities (2026-10, migration 053)
+
+Added from measured gaps, not guesses: `WEAPONS.AMMUNITION` (sector "Weapons &
+Ammunition"), `TRAINING.SIMULATION`, `SPARES.REPLACEMENT` (taxonomy now 25
+capabilities). Reachable tenders (any capability by code or keyword) went
+6,082 -> 6,528 of 11,565 (53% -> 56%).
+
+- Weapons/ammo CPV 353xx were ALREADY mapped to MANUFACTURING.DEFENCE /
+  MISSILES.PRECISION; they are ADDED to the new capability, not moved (same
+  precedent as CPV 35400000), so no tenant loses matches. Cost: those tenders
+  count in two sectors on the Industries page. UNSPSC is different: the new
+  narrower prefixes (`461015/461016/461018`) beat the broad `4610` by the
+  resolver's longest-prefix rule, so there they replace, not duplicate.
+- SPARES deliberately does NOT claim AusTender/Canada UNSPSC `25xx`
+  ("Ship/Military Spare Parts"): a narrower mapping would silently pull those
+  out of LAND.SYSTEMS / NAVAL.SYSTEMS in Customer/OEM views.
+- Keywords carry singular AND plural (word-boundary scoring, see migration 034)
+  and Spanish/French/German/Czech/Slovak/Polish/Ukrainian forms. `consumables`
+  was left out on purpose (in TED it means medical consumables). Inflected
+  forms ("náhradných dielov" vs other cases) only match the listed form.
+- Honest limit: `TRAINING.SIMULATION` has few code-mapped tenders (~35) — a
+  simulator product will find little until more simulator codes appear;
+  matching only ever considers code-mapped tenders as candidates, keyword-only
+  tenders (e.g. 62 by keyword vs 35 by code) are not reachable. Making keyword
+  hits candidates on their own is the real fix and a separate design decision
+  (false-positive risk).
+- Tests: `test_missing_capabilities.py` seeds its own tender per capability, so
+  it passes on a fresh DB.
+
 ## Known limitations worth remembering while working here
 
 - The scheduler (APScheduler) only runs while the API process is up — no
