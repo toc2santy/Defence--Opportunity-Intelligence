@@ -26,7 +26,7 @@ def tenders(db_cursor):
     specs = {
         "spares": f"Watercraft Spare Parts lot {t}",
         "weapons": f"Adquisicion de municiones para entrenamiento {t}",        # accent-less spelling of the flagged 'municiones'
-        "training": f"Purchase of a flight simulator for crews {t}",
+        "training": f"Purchase of a flight simulator for crews {t}",   # training: no standalone keywords
         "generic_only": f"Naval surveillance of the harbour lawn {t}",     # generic words only
         "english_ammunition_plant": f"Army Ammunition Plant storage tank works {t}",   # deliberately NOT flagged
         "bare_simulator": f"Ultrasound Simulator for clinic {t}",           # deliberately NOT flagged
@@ -69,7 +69,7 @@ def test_standalone_keyword_makes_an_unmapped_code_tender_a_capped_keyword_match
         resp = client.post(f"/products/{product_id}/match-programmes", headers=auth_headers).json()
         by_title = {m["programme_name"]: m for m in resp["matches"]}
 
-        for name in ("spares", "weapons", "training"):
+        for name in ("spares", "weapons"):
             title = tenders[name][1]
             assert title in by_title, f"{name} tender (unmapped code, standalone keyword) was not matched"
             m = by_title[title]
@@ -77,12 +77,14 @@ def test_standalone_keyword_makes_an_unmapped_code_tender_a_capped_keyword_match
             assert m["naics_match"] is False and m["matched_classification_code"] is None
             assert m["confidence"] in ("low", "medium"), "keyword-only must never be high"
 
+        assert tenders["training"][1] not in by_title, (
+            "TRAINING.SIMULATION has no standalone keyword (0 of 4 reviewed keyword-only hits were right)")
         assert tenders["generic_only"][1] not in by_title, "generic words alone must not create a candidate"
         assert tenders["english_ammunition_plant"][1] not in by_title, "English 'ammunition' is not standalone (plants/services)"
         assert tenders["bare_simulator"][1] not in by_title, "a bare 'simulator' is not standalone (medical/test simulators)"
         assert tenders["spares_inflected_only"][1] not in by_title, "'sparely' is not the word 'spares'"
         assert resp["trace"]["keyword_only_enabled"] is True
-        assert resp["trace"]["keyword_only_matches"] >= 3
+        assert resp["trace"]["keyword_only_matches"] >= 2
 
         # persisted + listed with its basis, so the UI can tag it
         opps = client.get("/opportunities", headers=auth_headers).json()

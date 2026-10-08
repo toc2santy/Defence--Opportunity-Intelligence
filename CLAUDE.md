@@ -3988,7 +3988,7 @@ capabilities). Reachable tenders (any capability by code or keyword) went
 - Tests: `test_missing_capabilities.py` seeds its own tender per capability, so
   it passes on a fresh DB.
 
-## Keyword-only matching (2026-10, migration 054) — built, OFF by default
+## Keyword-only matching (2026-10, migration 054) — ON in dev, OFF by default elsewhere
 
 A tender used to be a match CANDIDATE only if its classification code was mapped
 to the product's capability; keywords just re-scored it, so "Watercraft Spare
@@ -4007,8 +4007,8 @@ becomes a candidate on its own.
   `keyword_only_enabled` / `keyword_only_matches`.
 - Precision is curated per keyword, not by a score threshold: simulating a plain
   threshold showed one generic word ("surveillance", "naval") pulls in civilian CCTV
-  and unrelated Colombian tyre tenders. Initial flags: 58 keywords on the three
-  migration-053 capabilities only (18 spares, 21 weapons, 19 training).
+  and unrelated Colombian tyre tenders. Flags: 39 keywords (18 spares, 21 weapons).
+  TRAINING.SIMULATION has NONE: all 4 reviewed keyword-only hits were wrong.
 - Tightened after a precision read of the first sample: English 'ammunition',
   'munition(s)', 'small arms', 'explosive ordnance' and bare 'simulator(s)' are NOT
   flagged (they name plants, services, EOD vehicles, ultrasound/GNSS test simulators,
@@ -4020,8 +4020,14 @@ becomes a candidate on its own.
 - Prefilter is SQL `LIKE ANY` with non-ASCII chars turned into `_` (SQL has no
   `fold()`); it can only over-select, `score_text()` makes the final call. Fine at
   11k tenders; add a `pg_trgm` GIN index on `lower(name)` before it grows 10x+.
-- Before turning the flag on: a human reviews `review/keyword_only_sample.md`
-  (Y/N per row, target >= 85% precision). `review/` is a local, untracked folder.
+- Human precision review done 2026-10-08 on `review/keyword_only_sample.md` (a
+  local, untracked folder): 40 of 46 rows right = 87% (spares 33/34, weapons 7/8,
+  training 0/4). Weapons n=8 is too small to be conclusive. The flag was then
+  turned on for the DEV stack only (`KEYWORD_ONLY_MATCHING=true` in the gitignored
+  `.env`); `docker-compose.prod.yml` still defaults it to false, so a production
+  deployment must opt in. Nothing was re-matched: existing opportunities only
+  change when a product is matched again.
+- Re-run the sample (and re-review) after adding any `standalone` keyword.
 
 ## Known limitations worth remembering while working here
 

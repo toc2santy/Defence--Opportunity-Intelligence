@@ -19,7 +19,8 @@
 --                      learner of migration 052 never does). Default false,
 --                      so nothing changes until a keyword is flagged.
 --
--- First batch: only the three capabilities from migration 053. Short acronyms
+-- First batch: SPARES.REPLACEMENT and WEAPONS.AMMUNITION from migration 053
+-- (TRAINING.SIMULATION is deliberately NOT flagged, see below). Short acronyms
 -- ('uav', 'uas') and generic words ('weapons', 'cartridge', 'simulation',
 -- 'training aid') are deliberately NOT flagged.
 --
@@ -37,6 +38,12 @@
 --     phrases ('flight simulator', 'tactical trainer', 'firing range'...) are.
 --   * SPARES stays fully flagged: every sampled title was a genuine spare-parts
 --     tender.
+--   * TRAINING.SIMULATION has NO standalone keyword at all: in the reviewed sample
+--     all 4 keyword-only hits were wrong (a civil FAA airliner flight simulator,
+--     a software update for a tactical trainer, maintenance of simulator IT
+--     equipment). Training tenders are still found through the mapped codes.
+--   * Reviewed by a person (2026-10-08): 40 of 46 sampled rows right = 87%
+--     (spares 33/34, weapons 7/8, training 0/4).
 --
 -- opportunities.match_basis records HOW a tender matched so the UI can say
 -- "title keyword match, no classification code" instead of passing it off as a
@@ -77,15 +84,5 @@ where ct.id = k.capability_id
     ('WEAPONS.AMMUNITION', 'armes à feu'), ('WEAPONS.AMMUNITION', 'munitionen'), ('WEAPONS.AMMUNITION', 'feuerwaffen'),
     ('WEAPONS.AMMUNITION', 'schusswaffen'), ('WEAPONS.AMMUNITION', 'střelivo'), ('WEAPONS.AMMUNITION', 'amunicja'),
     ('WEAPONS.AMMUNITION', 'amunicji'), ('WEAPONS.AMMUNITION', 'broń palna'), ('WEAPONS.AMMUNITION', 'боєприпаси'),
-    ('WEAPONS.AMMUNITION', 'набої'), ('WEAPONS.AMMUNITION', 'гранати'), ('WEAPONS.AMMUNITION', 'стрілецька зброя'),
-    -- TRAINING.SIMULATION
-    ('TRAINING.SIMULATION', 'flight simulator'),
-    ('TRAINING.SIMULATION', 'training simulator'), ('TRAINING.SIMULATION', 'combat simulator'),
-    ('TRAINING.SIMULATION', 'firing range'), ('TRAINING.SIMULATION', 'shooting range'), ('TRAINING.SIMULATION', 'wargaming'),
-    ('TRAINING.SIMULATION', 'synthetic training'), ('TRAINING.SIMULATION', 'tactical trainer'),
-    ('TRAINING.SIMULATION', 'mission trainer'), ('TRAINING.SIMULATION', 'marksmanship'),
-    ('TRAINING.SIMULATION', 'simulador'), ('TRAINING.SIMULATION', 'simuladores'), ('TRAINING.SIMULATION', 'simulateur'),
-    ('TRAINING.SIMULATION', 'simulateurs'), ('TRAINING.SIMULATION', 'symulator'), ('TRAINING.SIMULATION', 'symulatory'),
-    ('TRAINING.SIMULATION', 'symulatora'),
-    ('TRAINING.SIMULATION', 'симулятор'), ('TRAINING.SIMULATION', 'симулятори')
+    ('WEAPONS.AMMUNITION', 'набої'), ('WEAPONS.AMMUNITION', 'гранати'), ('WEAPONS.AMMUNITION', 'стрілецька зброя')
   );
