@@ -4029,6 +4029,43 @@ becomes a candidate on its own.
   change when a product is matched again.
 - Re-run the sample (and re-review) after adding any `standalone` keyword.
 
+## Presenter briefing assistant (2026-10, frontend only)
+
+A floating "Brief me" panel for the people who brief customers. On every page
+change it shows (and reads aloud with a FEMALE browser voice) a pre-written
+script for that page: what the page is for, the points to cover, and the
+positives that are true and provable, plus an on-screen "If they ask" note with
+the honest gaps. Lives in its own `<script>` block between `BRIEFING:START` /
+`BRIEFING:END` in the single HTML file; `render()` calls `briefingOnPage(appMode)`.
+
+- Deliberately NOT an AI: every line is fixed, reviewed text, so it cannot invent
+  a claim, number or technical detail. It ships inside the page to every user, so
+  it contains no technical internals and no superlatives (enforced by
+  `test_frontend_briefing.py`, which runs the real module under Node).
+- Shown ONLY when the signed-in tenant name matches `VENDOR_NAME_RE` (Syas). A
+  customer tenant never gets it. This is a UI gate over non-sensitive static text,
+  not a security boundary.
+- Voice: the browser's own speech synthesis (free, no server). Browsers expose no
+  gender, so a voice counts as female only by name (Zira, Neerja, Heera, Samantha,
+  "Google UK English Female"...); a male voice is never picked silently. If none is
+  installed the panel says so and nothing is spoken until the user picks "use any
+  voice". Voices differ per device/browser: Chrome/Edge on Windows with a natural
+  voice (Neerja/Aria/Jenny) sounds best.
+- Browsers refuse to speak before the first click on a page; the panel then asks
+  for one Play press. After that "Start automatically on each page" works because
+  a nav click is a user gesture.
+- English only for now. Hindi would need Devanagari scripts and a Hindi female
+  voice (Heera / Google Hindi); Roman-Hindi text is read badly by TTS.
+- NOT verified: actual audio and the panel's look, which need a real browser
+  (none in the dev environment). Only the logic (voice choice, script coverage of
+  every routable page, gating, text rules) is tested.
+- Scripts must be updated when a page's content changes; a page added to the
+  router without a briefing fails the coverage test.
+- Future (not built): a chat Q&A layer behind a two-pack knowledge base — customer
+  pack (operational only) and an internal pack unlocked only for Syas platform
+  admins after a fresh MFA check. The technical-info boundary must come from what
+  each pack contains, not from instructing a model to withhold.
+
 ## Known limitations worth remembering while working here
 
 - The scheduler (APScheduler) only runs while the API process is up — no

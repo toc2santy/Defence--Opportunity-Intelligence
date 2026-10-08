@@ -1519,6 +1519,7 @@ function render(){
     guide:renderGuide, presentation:renderPresentation};
   main.innerHTML = fns[appMode] ? fns[appMode]() : '';
   postRenderHooks();
+  if(window.briefingOnPage) window.briefingOnPage(appMode);   // presenter briefing (Syas accounts only)
 }
 
 /* ============================================================
@@ -6913,6 +6914,498 @@ document.getElementById('topSignUpBtn').addEventListener('click', () => {
 
 loadTheme();
 boot();
+</script>
+<script>
+/* BRIEFING:START — presenter-side briefing assistant (2026-10).
+   Shown ONLY to Syas accounts (the people who brief customers). It reads a
+   short, pre-written script for whichever page is open: what the page is for,
+   the points to cover, and the positives that are true and provable. It speaks
+   them with a FEMALE browser voice and also shows them on screen.
+
+   Deliberately NOT an AI: every line is fixed text written and reviewed in
+   advance, so it can never invent a claim, a number or a technical detail.
+   Nothing here is sensitive — this text ships inside the page to every user,
+   so it contains no technical internals and no superlatives ("best in the
+   world"); where a gap exists it is listed under "If they ask". */
+(function(){
+'use strict';
+
+const B = (intro, points, positives, ifAsked) => ({intro, points, positives, ifAsked: ifAsked || []});
+
+const BRIEFINGS = {
+  home: B(
+    'This is the home page. It states the problem in one line: turning defence capability into business opportunity.',
+    ['Start with the live demonstration box. The customer describes what they build, and the software shows how many real, live tenders it matches. No signup is needed.',
+     'Below it is a worked case file, a secure UAV data link, that follows one product from description to opportunity.',
+     'The page explains the problem honestly: great technology does not automatically create business, because companies often do not know where they fit.'],
+    ['The numbers in the demonstration are counted from real government tenders, not invented.',
+     'Ten government procurement sources across the United States, United Kingdom, European Union, Canada, Australia, India and more feed one platform.',
+     'Every recommendation comes with its evidence, and an analyst confirms the important steps.'],
+    ['The case-study figures are labelled as a demonstration, not a real customer.',
+     'Each government portal occasionally pauses; the platform shows what each source actually returned.']),
+
+  products: B(
+    'This is My Products. It is where a company adds what it builds. Everything here is real data in the customer\'s own account.',
+    ['Add a product with a name, a technology readiness level and a plain description.',
+     'Then classify it. The software suggests matching capabilities and shows which words led to each suggestion.',
+     'An analyst confirms the capabilities that are right. Only confirmed capabilities are used for matching.',
+     'Then run all ten engines. A live window shows each engine working in turn.'],
+    ['A human confirms the capability, so results are not left to a guess.',
+     'Each suggestion shows its evidence, so the customer can see why.',
+     'The product description stays private to the customer\'s own account.'],
+    ['If a product does not classify anywhere, the capability list can be extended.']),
+
+  platform: B(
+    'This page explains how the platform is built as four connected layers: input, intelligence, decision and execution.',
+    ['Input is what the company brings: its products, capabilities and readiness.',
+     'Intelligence matches that against real tenders, buyers, contract winners and markets.',
+     'Decision scores each opportunity and explains the score.',
+     'Execution turns it into a pipeline with an owner, a deadline and a recommended next action.'],
+    ['It is not a black box. It combines a transparent scoring rule, evidence and human validation.',
+     'Software suggestions are never presented as final answers.',
+     'One continuous pipeline, from a product description to a concrete action.'],
+    ['Stay with the four layers. Internal design is not discussed with customers.']),
+
+  architecture: B(
+    'This is the Architecture Map: the whole pipeline in one picture. Ten real sources in, one human-confirmed match, ten engines out.',
+    ['The first group is the data sources.',
+     'The highlighted step is the human confirmation.',
+     'The last group is the ten engines that produce decision-ready outputs.',
+     'A check mark means that engine is built and tested.'],
+    ['It shows the real flow of data, not a marketing diagram.',
+     'The human confirmation step is deliberate. It is what keeps the results trustworthy.'],
+    ['Describe the picture only. Do not go into how the software is implemented.']),
+
+  engines: B(
+    'These are the ten intelligence engines. Each one turns information into a decision-ready output.',
+    ['They run in order, from one to ten.',
+     'The first four understand the product, the market, the programmes and the customers.',
+     'Five and six find partners and competitors, using only published contract awards.',
+     'Seven to ten score the opportunities, track the tenders, manage engagement, and recommend the next best action.'],
+    ['Each engine shows its purpose, how it works, an example and its output.',
+     'Status is shown honestly: what is built and tested is marked as such.',
+     'Competitor analysis never invents a weakness. It uses only what the published record shows.'],
+    ['The details are on screen. Do not describe internal implementation.']),
+
+  howto: B(
+    'This page walks through seven steps, from company profile to an executed opportunity.',
+    ['The same pipeline works for a first product or a full portfolio.',
+     'The analysis box on this page is only a demonstration. Nothing typed into it is sent anywhere.',
+     'The operating guide below gives step-by-step instructions for running the real software.'],
+    ['Clear steps, each ending in an action.',
+     'A guided walkthrough is available when the customer is ready.'],
+    ['The demonstration here uses a small sample, not the live tenders.']),
+
+  solutions: B(
+    'Solutions by customer type: the same intelligence engine doing six different jobs.',
+    ['There are three ways to work with the platform: an intelligence subscription, intelligence as a service, and business development as a service.',
+     'Choose by how much of the work the customer wants to do themselves.'],
+    ['Flexible: a customer can start self-serve or hand the analysis to analysts.',
+     'One engine, many uses.'],
+    ['Prices are scoped for each engagement and are not published.']),
+
+  industries: B(
+    'Sector coverage: every sector uses the same ten engines, tuned to its own programmes and procurement patterns.',
+    ['Hover over a card to see live counts.',
+     'Click a card to see which of the customer\'s own products fall in that sector.',
+     'If a customer\'s niche is not listed, the capability list can be extended.'],
+    ['The counts come from real ingested tenders.',
+     'The capability list keeps growing. Weapons and ammunition, training and simulation, and spare parts were added recently.'],
+    ['Some sectors have more data than others. Say so if asked.']),
+
+  dashboard: B(
+    'The opportunity dashboard shows every real opportunity matched across all the customer\'s products, in one place.',
+    ['Active opportunities are listed with score, confidence, stage and next action.',
+     'It shows what is genuinely new since the last visit.',
+     'Team visibility shows who is working on what.',
+     'Next-best-action coverage shows whether every live opportunity has a recommendation.',
+     'The score explainer on the left shows exactly how a score is built.'],
+    ['Every score is explained: a category match plus the keywords that actually appear in the tender.',
+     'Tenders that are already awarded are flagged, so nobody chases a closed opportunity.',
+     'Rows with no apply link or contact say so openly instead of hiding the gap.'],
+    ['Keyword-only matches are tagged and are never shown as high confidence.']),
+
+  'customer-intel': B(
+    'Customer intelligence lists every buying organisation seen across all the connected sources.',
+    ['Organisations are ranked by activity.',
+     'Each one shows what it buys, matched to the capability list.',
+     'Use it to decide whom to approach first.'],
+    ['Built from real published tenders, not guesses.',
+     'Buyers from many countries in one view.'],
+    ['Contacts are shown only where the source published them.']),
+
+  'oem-intel': B(
+    'OEM intelligence lists companies confirmed winning real defence contracts.',
+    ['It is built from published award notices.',
+     'It shows who wins what, where, and in which capability.',
+     'It is useful for finding integration and teaming partners.'],
+    ['Evidence-based: a company is listed because an award notice names it.',
+     'Many countries in one place.'],
+    ['Award data depends on what each government publishes.']),
+
+  'competitor-intel': B(
+    'Competitor intelligence is specific to the customer\'s own account.',
+    ['It lists companies confirmed winning contracts in the capability areas the customer has confirmed for its own products.',
+     'It uses only published award notices.'],
+    ['It never invents a weakness. It reports only what the record shows.',
+     'Two customers see different competitors, because it follows each one\'s own confirmed capabilities.'],
+    ['Nothing here is a judgement about a competitor\'s quality.']),
+
+  'partner-intel': B(
+    'Partner matching finds companies already winning work from the same buyers the customer is targeting, but in capabilities the customer does not cover.',
+    ['These companies complement rather than compete.',
+     'That makes them natural teaming partners.'],
+    ['Partnerships suggested from real contract evidence.',
+     'It helps smaller companies bid together for larger work.'],
+    ['A match is a starting point for a conversation, not an agreement.']),
+
+  'procurement-intel': B(
+    'Procurement intelligence places every tender in its own government\'s procurement lifecycle.',
+    ['From early concept, through requirement and request for information, to request for proposal and contract award.',
+     'Closing dates are stored where the source publishes them.'],
+    ['One view across many governments\' different processes.',
+     'It helps the customer act early, before a tender closes.'],
+    ['Stage names follow each government\'s own wording.']),
+
+  'report-intel': B(
+    'Report Intel shows one product, all ten engines, and exactly what each engine produced.',
+    ['Pick a product and see the output of every engine.',
+     'Every figure is read back from stored results.',
+     'If an engine found nothing, the report says so and says why.'],
+    ['One report that tells the whole story for a product.',
+     'Honest by design: no padding when there is nothing to report.'],
+    ['There is no PDF or Excel export yet. Printing the page or taking screenshots works today.']),
+
+  markets: B(
+    'Which international market should the customer enter first? This page answers with real activity.',
+    ['Every country with at least one real tender is ranked by actual procurement activity.',
+     'Click a country to see its stage breakdown.',
+     'The India market module explains the ecosystem, the procurement pathways and the innovation mechanisms.'],
+    ['Ranked by real activity, not by an invented attractiveness score.'],
+    ['Coverage depends on which government portals are connected. India\'s GeM and defence public-sector tenders are not covered yet.']),
+
+  resources: B(
+    'Resources: market reports, opportunity reports and sector insight.',
+    ['The case study on this page is a demonstration and is labelled as not a real customer.',
+     'Reports and insights are listed by type.'],
+    ['Transparent labelling: demonstrations are clearly marked as demonstrations.'],
+    ['Never present the case study as a real customer.']),
+
+  about: B(
+    'About: a defence business intelligence company that bridges engineering, intelligence, market understanding and business development.',
+    ['There are four bridges: engineering, intelligence, market and business development.',
+     'Six principles: evidence-driven, source-aware, transparent, human-validated, security-conscious and compliance-first.'],
+    ['The principles match how the software actually behaves, and each one can be shown.'],
+    ['Avoid ranking claims about the whole world. Point to evidence instead.']),
+
+  pricing: B(
+    'Pricing: every engagement is scoped to the customer\'s product portfolio and target markets.',
+    ['There are Starter, Professional and Enterprise tiers.',
+     'Beyond the subscription there are services that add a human analyst layer.',
+     'Items marked not yet available at any tier are shown openly.'],
+    ['The offer fits the customer rather than a fixed price list.',
+     'It is honest about what is not available yet.'],
+    ['Quote only what has been agreed. There are no published prices.']),
+
+  contact: B(
+    'Contact: the customer can request a free opportunity assessment, an enterprise demo, or ask about a partnership.',
+    ['They tell us about their product and challenge.',
+     'No intelligence is generated without analyst review.'],
+    ['A person reviews every assessment.',
+     'A free first assessment lowers the barrier to starting.'],
+    ['Confirm the response time before promising one.']),
+
+  'taxonomy-admin': B(
+    'This is the platform admin page for the capability categories that every customer\'s classification reads from.',
+    ['Add a category when a real product does not classify anywhere.',
+     'Changes affect every customer immediately.',
+     'Ingestion controls refresh the data sources.'],
+    ['The capability list can be extended quickly as the market changes.'],
+    ['Admin only. Do not show this page to a customer.']),
+
+  'company-admin': B(
+    'Company profile: the customer\'s compliance identity, for the buyers who ask.',
+    ['Company details, and a public card that carries no sensitive numbers.',
+     'Security settings: email verification, password change, active sessions and two-factor authentication.',
+     'Compliance details such as registrations and licences.'],
+    ['Two-factor authentication, and sign-in with Google or Microsoft.',
+     'A shareable public card builds trust with buyers.'],
+    ['Describe the features only. Do not discuss how security is built.']),
+
+  'company-view': B(
+    'This is the public company card that buyers see.',
+    ['It shows the name, logo, tagline and compliance badges.'],
+    ['It never shows the actual registration numbers.'],
+    []),
+
+  guide: B(
+    'The operating guide: how to run this software, step by step.',
+    ['Work through the steps in order the first time.',
+     'Each step says what to click, what you should see, and what it means if you see nothing.',
+     'Platform admin tasks and data refreshing are marked separately.'],
+    ['It explains that an empty result on real government data is usually normal, not an error.'],
+    ['An empty result usually means no live tender matched today.']),
+
+  presentation: B(
+    'Presentation mode: a short story that moves from the customer\'s technology to the market, the organisation and the opportunity.',
+    ['Use it as the opening for a customer meeting.',
+     'The message is: you have the technology, we connect the dots.'],
+    ['Everything shown comes from the working platform.'],
+    [])
+};
+
+// Spoken forms the browser voice would otherwise mangle.
+const PRONOUNCE = [
+  [/\bOEMs?\b/g, 'O E M'], [/\bUAV\b/g, 'U A V'], [/\bTRL\b/g, 'T R L'], [/\bRFP\b/g, 'R F P'],
+  [/\bRFI\b/g, 'R F I'], [/\bAI\b/g, 'A I'], [/\bPDF\b/g, 'P D F'], [/\bGeM\b/g, 'G e M'],
+  [/\bTED\b/g, 'Ted'], [/SAM\.gov/g, 'Sam dot gov'],
+];
+function speakable(text){
+  let t = text;
+  for(const [re, rep] of PRONOUNCE) t = t.replace(re, rep);
+  return t;
+}
+
+// Build the ordered list of lines that are spoken and shown.
+function buildScript(b){
+  const items = [{kind:'intro', text:b.intro}];
+  b.points.forEach(t => items.push({kind:'point', text:t}));
+  if(b.positives.length){
+    items.push({kind:'head', text:'What makes this strong.'});
+    b.positives.forEach(t => items.push({kind:'positive', text:t}));
+  }
+  return items;
+}
+
+/* ---- female voice selection ----
+   Browsers expose no "gender" field, so a voice is judged by its name. A
+   voice is used only if it is a known female voice; a male voice is never
+   picked silently (the user can still choose "use any voice"). */
+const FEMALE_RE = /\b(zira|hazel|heera|neerja|swara|aria|jenny|libby|sonia|samantha|veena|lekha|karen|moira|tessa|fiona|victoria|susan|catherine|natasha|emma|ava|allison|serena|female)\b|google uk english female|google us english|google हिन्दी/i;
+const MALE_RE = /\b(david|mark|james|george|ravi|hemant|prabhat|rishi|daniel|alex|fred|tom|ryan|guy|male|ben|oliver|sean|liam)\b/i;
+const LANG_RANK = ['en-in', 'en-gb', 'en-us', 'en-au', 'en'];
+
+function isFemaleVoice(v){
+  const n = v.name || '';
+  if(/female/i.test(n)) return true;
+  return FEMALE_RE.test(n) && !MALE_RE.test(n);
+}
+function langScore(v){
+  const l = (v.lang || '').toLowerCase().replace('_', '-');
+  const i = LANG_RANK.findIndex(p => l === p || l.startsWith(p + '-'));
+  return i === -1 ? 99 : i;
+}
+function femaleVoices(voices){
+  return voices.filter(v => (v.lang || '').toLowerCase().startsWith('en') && isFemaleVoice(v))
+    .sort((a, b) => langScore(a) - langScore(b) || (/natural|online/i.test(b.name) - /natural|online/i.test(a.name)));
+}
+
+/* ---- UI + speech (only runs in a real browser) ---- */
+const st = {mounted:false, open:true, auto:true, rate:0.95, voiceURI:null, anyVoice:false,
+            mode:null, items:[], idx:0, playing:false, token:0, needsClick:false};
+const els = {};
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem('brf.' + k); return v === null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem('brf.' + k, JSON.stringify(v)); }catch(e){} }
+};
+const synth = () => (typeof window !== 'undefined' && window.speechSynthesis) || null;
+
+function currentVoice(){
+  const s = synth(); if(!s) return null;
+  const all = s.getVoices();
+  const fem = femaleVoices(all);
+  if(st.voiceURI){ const v = all.find(x => x.voiceURI === st.voiceURI); if(v) return v; }
+  if(fem.length) return fem[0];
+  if(st.anyVoice) return all.find(v => (v.lang || '').toLowerCase().startsWith('en')) || all[0] || null;
+  return null;
+}
+
+function css(){
+  const s = document.createElement('style');
+  s.textContent = `
+  #brfFab{position:fixed;right:18px;bottom:18px;z-index:150;border:1px solid var(--border);background:var(--panel);color:var(--text);
+    border-radius:999px;padding:10px 16px;font-size:.84rem;cursor:pointer;box-shadow:0 4px 18px rgba(0,0,0,.35)}
+  #brfFab:hover{background:var(--panel-hover)}
+  #brfPanel{position:fixed;right:18px;bottom:66px;z-index:150;width:min(390px,calc(100vw - 32px));max-height:72vh;overflow:auto;
+    background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:14px 16px;box-shadow:0 8px 30px rgba(0,0,0,.45)}
+  #brfPanel[hidden]{display:none}
+  #brfPanel h4{margin:0 0 2px;font-size:.98rem}
+  #brfPanel .brf-sub{color:var(--text-faint);font-size:.74rem;margin-bottom:10px}
+  #brfPanel .brf-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}
+  #brfPanel button.brf-b{border:1px solid var(--border);background:var(--panel-alt);color:var(--text);border-radius:8px;padding:6px 11px;font-size:.8rem;cursor:pointer}
+  #brfPanel button.brf-b:hover{background:var(--panel-hover)}
+  #brfPanel button.brf-b.brf-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  #brfPanel ol{list-style:none;margin:8px 0 0;padding:0}
+  #brfPanel li{padding:7px 9px;border-radius:8px;font-size:.84rem;line-height:1.45;color:var(--text-dim);cursor:pointer;border:1px solid transparent}
+  #brfPanel li:hover{background:var(--panel-alt)}
+  #brfPanel li.brf-now{background:var(--accent-soft);color:var(--text);border-color:var(--accent)}
+  #brfPanel li.brf-head{font-weight:600;color:var(--text);cursor:default;padding-top:11px}
+  #brfPanel li.brf-pos::before{content:"\\2713  ";color:var(--low)}
+  #brfPanel .brf-ask{margin-top:10px;padding:9px 10px;border:1px dashed var(--border);border-radius:8px;font-size:.78rem;color:var(--text-dim)}
+  #brfPanel .brf-ask b{color:var(--signal)}
+  #brfPanel .brf-note{font-size:.74rem;color:var(--text-faint);margin-top:8px}
+  #brfPanel .brf-warn{font-size:.78rem;color:var(--signal);margin-top:6px}
+  #brfPanel label{font-size:.76rem;color:var(--text-dim)}
+  @media (max-width:600px){#brfPanel{right:8px;bottom:60px}#brfFab{right:8px;bottom:8px}}`;
+  document.head.appendChild(s);
+}
+
+function el(tag, attrs, text){
+  const e = document.createElement(tag);
+  if(attrs) for(const k in attrs){ if(k === 'class') e.className = attrs[k]; else e.setAttribute(k, attrs[k]); }
+  if(text !== undefined) e.textContent = text;
+  return e;
+}
+
+function mount(){
+  if(st.mounted) return;
+  css();
+  st.open = store.get('open', true); st.auto = store.get('auto', true);
+  st.rate = store.get('rate', 0.95); st.voiceURI = store.get('voice', null);
+
+  els.fab = el('button', {id:'brfFab', type:'button', 'aria-label':'Open or close the briefing assistant'}, '🎙 Brief me');
+  els.panel = el('section', {id:'brfPanel', role:'region', 'aria-label':'Briefing assistant'});
+  els.title = el('h4'); els.sub = el('div', {class:'brf-sub'});
+  els.play = el('button', {class:'brf-b brf-primary', type:'button'}, '▶ Play');
+  els.prev = el('button', {class:'brf-b', type:'button', 'aria-label':'Previous point'}, '⏮');
+  els.next = el('button', {class:'brf-b', type:'button', 'aria-label':'Next point'}, '⏭');
+  els.stop = el('button', {class:'brf-b', type:'button'}, '⏹ Stop');
+  const ctl = el('div', {class:'brf-row'}); [els.play, els.prev, els.next, els.stop].forEach(b => ctl.appendChild(b));
+
+  els.auto = el('input', {type:'checkbox', id:'brfAuto'});
+  const autoL = el('label', {for:'brfAuto'}, ' Start automatically on each page');
+  els.rate_ = el('input', {type:'range', min:'0.7', max:'1.3', step:'0.05', id:'brfRate', 'aria-label':'Speaking speed'});
+  const opts = el('div', {class:'brf-row'}); opts.appendChild(els.auto); opts.appendChild(autoL);
+  const sp = el('div', {class:'brf-row'}); sp.appendChild(el('label', {for:'brfRate'}, 'Speed')); sp.appendChild(els.rate_);
+
+  els.voiceSel = el('select', {id:'brfVoice', 'aria-label':'Voice'}); els.voiceSel.style.maxWidth = '100%';
+  els.voiceNote = el('div', {class:'brf-note'});
+  els.warn = el('div', {class:'brf-warn', role:'status'});
+  els.list = el('ol'); els.ask = el('div', {class:'brf-ask'});
+
+  [els.title, els.sub, ctl, opts, sp, els.voiceSel, els.voiceNote, els.warn, els.list, els.ask].forEach(n => els.panel.appendChild(n));
+  document.body.appendChild(els.fab); document.body.appendChild(els.panel);
+
+  els.auto.checked = st.auto; els.rate_.value = String(st.rate); els.panel.hidden = !st.open;
+
+  els.fab.addEventListener('click', () => { st.open = els.panel.hidden; els.panel.hidden = !st.open; store.set('open', st.open); if(!st.open) stopSpeech(); });
+  els.play.addEventListener('click', () => { if(st.playing) pauseSpeech(); else speakFrom(st.idx >= st.items.length ? 0 : st.idx); });
+  els.stop.addEventListener('click', () => { stopSpeech(); st.idx = 0; mark(-1); });
+  els.prev.addEventListener('click', () => speakFrom(Math.max(0, st.idx - 1)));
+  els.next.addEventListener('click', () => speakFrom(Math.min(st.items.length - 1, st.idx + 1)));
+  els.auto.addEventListener('change', () => { st.auto = els.auto.checked; store.set('auto', st.auto); });
+  els.rate_.addEventListener('input', () => { st.rate = parseFloat(els.rate_.value); store.set('rate', st.rate); });
+  els.voiceSel.addEventListener('change', () => {
+    if(els.voiceSel.value === '__any'){ st.anyVoice = true; st.voiceURI = null; }
+    else { st.voiceURI = els.voiceSel.value; store.set('voice', st.voiceURI); }
+    fillVoices();
+  });
+  const s = synth();
+  if(s) s.onvoiceschanged = fillVoices;
+  fillVoices();
+  window.addEventListener('beforeunload', () => { const sy = synth(); if(sy) sy.cancel(); });
+  st.mounted = true;
+}
+
+function fillVoices(){
+  const s = synth();
+  els.voiceSel.textContent = '';
+  els.warn.textContent = '';
+  if(!s){ els.voiceNote.textContent = 'This browser cannot speak aloud. The points are still shown below.'; els.voiceSel.hidden = true; return; }
+  const all = s.getVoices();
+  const fem = femaleVoices(all);
+  els.voiceSel.hidden = false;
+  fem.forEach(v => { const o = el('option', {value:v.voiceURI}, v.name + ' (' + v.lang + ')'); els.voiceSel.appendChild(o); });
+  if(!fem.length){
+    els.voiceSel.appendChild(el('option', {value:'__any'}, 'No female voice found — use any voice'));
+    els.warn.textContent = all.length
+      ? 'No female voice was found on this device, so nothing will be spoken. On Windows, add one under Settings > Time & language > Speech (for example Zira or Neerja), or use Chrome/Edge. You can also pick "use any voice".'
+      : 'Voices are still loading…';
+  }
+  const v = currentVoice();
+  if(v && fem.includes(v)) els.voiceSel.value = v.voiceURI;
+  els.voiceNote.textContent = v ? 'Voice: ' + v.name + (isFemaleVoice(v) ? ' (female)' : ' (not confirmed female)') : '';
+}
+
+function renderPage(mode){
+  const b = BRIEFINGS[mode];
+  els.title.textContent = b ? 'Briefing: ' + (mode.replace(/-/g, ' ')) : 'Briefing';
+  els.sub.textContent = b ? 'Spoken and on screen. Click any line to start from it.' : 'No briefing is written for this page.';
+  els.list.textContent = ''; els.ask.textContent = '';
+  st.items = b ? buildScript(b) : [];
+  st.items.forEach((it, i) => {
+    const li = el('li', {class:it.kind === 'head' ? 'brf-head' : (it.kind === 'positive' ? 'brf-pos' : '')}, it.text);
+    if(it.kind !== 'head') li.addEventListener('click', () => speakFrom(i));
+    els.list.appendChild(li);
+  });
+  if(b && b.ifAsked.length){
+    els.ask.appendChild(el('b', null, 'If they ask: '));
+    els.ask.appendChild(document.createTextNode(b.ifAsked.join(' ')));
+  }
+  els.ask.hidden = !(b && b.ifAsked.length);
+}
+
+function mark(i){
+  Array.from(els.list.children).forEach((li, k) => li.classList.toggle('brf-now', k === i));
+  const now = els.list.children[i]; if(now && now.scrollIntoView) now.scrollIntoView({block:'nearest'});
+}
+function setPlaying(p){ st.playing = p; els.play.textContent = p ? '⏸ Pause' : '▶ Play'; }
+
+function stopSpeech(){ st.token++; const s = synth(); if(s) s.cancel(); setPlaying(false); }
+function pauseSpeech(){ const keep = st.idx; stopSpeech(); st.idx = keep; }
+
+function speakFrom(i){
+  const s = synth(); if(!s || !st.items.length) return;
+  const voice = currentVoice();
+  if(!voice){ fillVoices(); return; }
+  st.token++; s.cancel();
+  st.idx = i; setPlaying(true); els.warn.textContent = '';
+  const my = st.token;
+  // A cancel() immediately followed by speak() is dropped by some browsers.
+  setTimeout(() => { if(my === st.token) speakItem(my); }, 80);
+}
+
+function speakItem(my){
+  if(my !== st.token) return;
+  const s = synth();
+  if(st.idx >= st.items.length){ setPlaying(false); mark(-1); st.idx = 0; return; }
+  const it = st.items[st.idx];
+  mark(st.idx);
+  const u = new SpeechSynthesisUtterance(speakable(it.text));
+  const v = currentVoice();
+  if(v){ u.voice = v; u.lang = v.lang; }
+  u.rate = st.rate; u.pitch = 1;
+  u.onend = () => { if(my !== st.token) return; st.idx++; speakItem(my); };
+  u.onerror = (e) => {
+    if(my !== st.token) return;
+    if(e.error === 'not-allowed'){ setPlaying(false); els.warn.textContent = 'The browser needs one click on the page before it will speak. Press Play.'; }
+    else if(e.error !== 'interrupted' && e.error !== 'canceled'){ setPlaying(false); els.warn.textContent = 'The voice stopped (' + e.error + '). Press Play to try again.'; }
+  };
+  s.speak(u);
+}
+
+function isPresenter(){
+  return typeof currentUser !== 'undefined' && currentUser && typeof VENDOR_NAME_RE !== 'undefined'
+    && VENDOR_NAME_RE.test(currentUser.company_name || '');
+}
+
+function onPage(mode){
+  if(!isPresenter()){
+    if(st.mounted){ stopSpeech(); els.fab.hidden = true; els.panel.hidden = true; }
+    return;
+  }
+  mount();
+  els.fab.hidden = false; els.panel.hidden = !st.open;
+  if(mode === st.mode) return;             // re-render of the same page: do not restart
+  st.mode = mode; stopSpeech(); st.idx = 0;
+  renderPage(mode);
+  if(st.auto && st.open && st.items.length) setTimeout(() => speakFrom(0), 350);
+}
+
+window.briefingOnPage = onPage;
+window.BriefingAssistant = {BRIEFINGS, buildScript, speakable, femaleVoices, isFemaleVoice};
+})();
+/* BRIEFING:END */
 </script>
 </body>
 </html>
