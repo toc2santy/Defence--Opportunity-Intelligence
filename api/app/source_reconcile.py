@@ -12,7 +12,7 @@ Name, buyer, code, link and contacts are never touched, nothing is deleted, and
 a procedure the source now lists as cancelled/void is only COUNTED (programmes
 has no "called off" stage; removing rows is a human decision).
 
-Sources without an adapter (SAM.gov, TED, CanadaBuys, UK, AusTender, CPPP,
+Sources without an adapter (SAM.gov, CanadaBuys, UK, AusTender, CPPP,
 South Africa, ProZorro) have no per-record lookup implemented here; they are
 reported as `not_reconcilable` instead of being silently skipped.
 """
@@ -28,6 +28,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 MISMATCH_ERROR_RATE = 0.05    # >5% of checked rows had a wrong stage -> error
 IDS_PER_REQUEST = 40
+
+
+def reconciliation_severity(stage_changed: int, rate: float, previous_rate: Optional[float]) -> str:
+    """
+    Red must mean "still not right", not "was wrong once and has since been fixed":
+    a run that CORRECTED stages reports a warning, and only a mismatch rate above the
+    threshold on two consecutive comparisons (the fix is not holding — typically
+    ingestion keeps writing the wrong stage) escalates to an error.
+    """
+    if rate > MISMATCH_ERROR_RATE and previous_rate is not None and previous_rate > MISMATCH_ERROR_RATE:
+        return "error"
+    return "warn" if stage_changed else "ok"
 
 
 def plan_changes(stored: dict, fresh: Optional[dict]) -> dict:
@@ -106,9 +118,40 @@ async def _paraguay_fetch(client: httpx.AsyncClient, refs: list[str]) -> dict:
     return out
 
 
+async def _ted_fetch(client: httpx.AsyncClient, refs: list[str]) -> dict:
+    """EU TED: look the stored notices up by publication number and re-run OUR normalizer on the answer."""
+    from app.ted_eu_normalize import normalize_ted_notice
+    body = {
+        "query": "publication-number IN (" + " ".join(r for r in refs if r.replace("-", "").isalnum()) + ")",
+        "fields": ["publication-number", "notice-title", "notice-type", "deadline-date-lot", "deadline-receipt-request"],
+        "limit": 250,
+    }
+    last_error = None
+    for attempt in range(1, 4):
+        try:
+            resp = await client.post("https://api.ted.europa.eu/v3/notices/search", json=body, timeout=60.0)
+            resp.raise_for_status()
+            notices = (resp.json() or {}).get("notices") or []
+            break
+        except (httpx.TransportError, httpx.HTTPStatusError, ValueError) as e:
+            last_error = e
+            await asyncio.sleep(2.0 * attempt)
+    else:
+        raise RuntimeError(f"TED lookup failed after 3 attempts: {type(last_error).__name__}")
+    out = {}
+    for raw in notices:
+        try:
+            rec = normalize_ted_notice(raw)
+        except (ValueError, AttributeError, TypeError):
+            continue
+        out[rec["external_ref"]] = {"stage": rec["stage"], "response_deadline": rec["response_deadline"]}
+    return out
+
+
 ADAPTERS: dict[str, Fetcher] = {
     "SECOP II (Colombia Compra Eficiente)": _secop_fetch,
     "DNCP Paraguay (Dirección Nacional de Contrataciones Públicas)": _paraguay_fetch,
+    "EU TED (Tenders Electronic Daily)": _ted_fetch,
 }
 
 
@@ -140,7 +183,7 @@ async def reconcile_source(
                 select id, external_ref, stage, response_deadline from programmes
                 where source_id = :s and external_ref is not null
                 order by {order} limit :lim
-            """), {"s": source_id, "lim": sample or 2000},
+            """), {"s": source_id, "lim": sample or 5000},
         )).mappings().all()
 
         fresh_by_ref: dict = {}
@@ -184,7 +227,11 @@ async def reconcile_source(
         if dry_run:
             return {"status": "dry_run", **result}
 
-        sev = "error" if rate > MISMATCH_ERROR_RATE else ("warn" if counts["stage_changed"] else "ok")
+        previous = (await session.execute(
+            text("""select (detail->>'mismatch_rate')::float from data_health_results
+                    where source_name = :s and check_code = 'source_reconciliation' and detail ? 'mismatch_rate'
+                    order by checked_at desc limit 1"""), {"s": source_name})).scalar()
+        sev = reconciliation_severity(counts["stage_changed"], rate, previous)
         await _record_result(session, source_name, sev, counts, rate, moves, examples, sampled=bool(sample))
         if job_id:
             await session.execute(

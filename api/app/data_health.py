@@ -6,7 +6,9 @@ stored tenders still mean what the source says. This module checks the stored
 data against its own invariants, per source, with no human step:
 
   awarded_but_open       a tender stored as open that already has an award recorded
-  impossible_deadline    a closing date before 2000 or more than 5 years ahead
+  impossible_deadline    a closing date before 2000 or more than 50 years ahead (long-lived
+                         dynamic purchasing systems / supply arrangements legitimately run to
+                         2032-2050, so a shorter limit raised false alarms on its first run)
   malformed_link         a stored link that is not a plain http(s) URL
   open_without_deadline  open tenders with no closing date (the dashboard cannot
                          tell they have closed)
@@ -75,7 +77,7 @@ async def _per_source_counts(session, source_filter):
                     and exists (select 1 from contract_awards a where a.programme_id = p.id)) as awarded_but_open,
                count(*) filter (where p.response_deadline ~ '^[0-9]{{4}}-[0-9]{{2}}'
                     and (left(p.response_deadline, 4)::int < 2000
-                         or left(p.response_deadline, 4)::int > extract(year from now())::int + 5)) as impossible_deadline,
+                         or left(p.response_deadline, 4)::int > extract(year from now())::int + 50)) as impossible_deadline,
                count(*) filter (where p.ui_link is not null and p.ui_link !~* '^https?://[^ ]+$') as malformed_link,
                count(*) filter (where p.stage = any(:open) and (p.response_deadline is null or p.response_deadline = '')) as open_no_deadline,
                count(*) filter (where p.stage = any(:open) and p.ui_link is null
@@ -113,7 +115,7 @@ async def collect_checks(session: AsyncSession, only_source: Optional[str] = Non
             {"examples": await _examples(session, src,
                 "p.stage = any(:open) and exists (select 1 from contract_awards a where a.programme_id = p.id)")} if n else {}))
 
-        for code, key, label in (("impossible_deadline", "impossible_deadline", "closing dates before 2000 or over 5 years ahead"),
+        for code, key, label in (("impossible_deadline", "impossible_deadline", "closing dates before 2000 or more than 50 years ahead"),
                                  ("malformed_link", "malformed_link", "stored links that are not plain http(s) URLs")):
             n = row[key]
             results.append(_result(src, code, "error" if n else "ok", n, total,

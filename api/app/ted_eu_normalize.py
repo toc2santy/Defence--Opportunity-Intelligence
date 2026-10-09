@@ -50,6 +50,14 @@ _STAGE_MAP = {
     "can-desg": "contract_awarded",
     "veat": "contract_awarded",               # Voluntary ex-ante transparency
     "subco": "rfp_issued",                    # Subcontracting notice
+    # Found 2026-10 by the data-health scan: these were unmapped and fell to the
+    # "requirement_defined" floor. 104 stored notices were checked against TED itself:
+    # 77 were `can-modif`, 1 `compl`, 5 `pin-buyer`, 4 `pin-rtl` (the rest, `qu-sy` and
+    # `pmc`, are left on the floor on purpose — not clearly any one stage).
+    "can-modif": "contract_awarded",          # Contract modification notice: the contract exists
+    "compl": "contract_awarded",              # Contract completion notice
+    "pin-buyer": "early_concept",             # Prior information notice (buyer profile)
+    "pin-rtl": "early_concept",               # Prior information notice (reduced time limits)
 }
 
 

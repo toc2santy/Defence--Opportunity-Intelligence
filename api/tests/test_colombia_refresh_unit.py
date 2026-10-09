@@ -86,3 +86,12 @@ def test_paraguay_404_means_the_record_is_gone_without_retrying():
     client = _FlakyClient([_Resp(404)])
     assert _run(source_reconcile._paraguay_get_record(client, "ocds-x-1-1")) is None
     assert client.calls == 1
+
+
+def test_reconciliation_is_red_only_when_the_fix_is_not_holding():
+    sev = source_reconcile.reconciliation_severity
+    assert sev(0, 0.0, None) == "ok"
+    assert sev(46, 0.43, None) == "warn", "found and corrected once: a warning, not an open error"
+    assert sev(46, 0.43, 0.0) == "warn"
+    assert sev(40, 0.40, 0.43) == "error", "still >5% wrong right after the last correction"
+    assert sev(2, 0.02, 0.43) == "warn"

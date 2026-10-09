@@ -2705,6 +2705,175 @@
     "external_ref": "ocds-03ad3f-484237-1"
    },
    "why": "second real 'Adjudicada' record"
+  },
+  {
+   "id": "ted_completion_notice_is_not_open",
+   "source": "ted",
+   "raw": {
+    "notice-type": "compl",
+    "publication-number": "666016-2026",
+    "classification-cpv": [
+     "35300000",
+     "35300000",
+     "35000000",
+     "35300000"
+    ],
+    "winner-country": [
+     "ITA"
+    ],
+    "buyer-name": {
+     "ita": [
+      "Comando Generale della Guardia di Finanza"
+     ]
+    },
+    "publication-date": "2026-09-28+02:00",
+    "winner-name": {
+     "ita": [
+      "Fabbrica d'Armi Pietro Beretta S.p.A."
+     ]
+    },
+    "notice-title": {
+     "hun": "Olaszország – Fegyverek, lőszerek és tartozékaik – Fucili da assalto Beretta NARP",
+     "lav": "Itāija – Ieroči, munīcija un to daļas – Fucili da assalto Beretta NARP",
+     "swe": "Italien – Vapen, ammunition och tillhörande delar – Fucili da assalto Beretta NARP",
+     "gle": "An Iodáil – Weapons, ammunition and associated parts – Fucili da assalto Beretta NARP",
+     "ell": "Ιταλία – Όπλα, πυρομαχικά και συναφή μέρη – Fucili da assalto Beretta NARP",
+     "spa": "Italia – Armas, municiones y sus partes – Fucili da assalto Beretta NARP",
+     "est": "Itaalia – Relvad, laskemoon ja seonduvad osad – Fucili da assalto Beretta NARP",
+     "nld": "Italië – Wapens, munitie en bijbehorende onderdelen – Fucili da assalto Beretta NARP",
+     "fin": "Italia – Aseet, ampumatarvikkeet ja niiden osat – Fucili da assalto Beretta NARP",
+     "pol": "Włochy – Broń, amunicja i podobne elementy – Fucili da assalto Beretta NARP",
+     "hrv": "Italija – Oružje, streljivo i pripadajući dijelovi – Fucili da assalto Beretta NARP",
+     "ces": "Itálie – Zbraně, munice a příbuzné součásti – Fucili da assalto Beretta NARP",
+     "dan": "Italien – Våben, ammunition og tilbehør dertil – Fucili da assalto Beretta NARP",
+     "ron": "Italia – Arme, muniţii şi piese conexe – Fucili da assalto Beretta NARP",
+     "por": "Itália – Armas, munições e respectivas peças – Fucili da assalto Beretta NARP",
+     "slk": "Taliansko – Zbrane, munícia a súvisiace časti – Fucili da assalto Beretta NARP",
+     "fra": "Italie – Armes, munitions et pièces associées – Fucili da assalto Beretta NARP",
+     "mlt": "L-Italja – Armi, munizjoni u partijiet assoċċjati – Fucili da assalto Beretta NARP",
+     "deu": "Italien – Waffen, Munition und zugehörige Teile – Fucili da assalto Beretta NARP",
+     "lit": "Italija – Ginklai, šaudmenys ir jų dalys – Fucili da assalto Beretta NARP",
+     "ita": "Italia – Armi, munizioni e relative parti – Fucili da assalto Beretta NARP",
+     "bul": "Итaлия – Оръжия, муниции и части за тях – Fucili da assalto Beretta NARP",
+     "slv": "Italija – Orožje, strelivo in pripadajoči deli – Fucili da assalto Beretta NARP",
+     "eng": "Italy – Weapons, ammunition and associated parts – Fucili da assalto Beretta NARP"
+    },
+    "buyer-country": [
+     "ITA"
+    ]
+   },
+   "expect": {
+    "stage": "contract_awarded",
+    "external_ref": "666016-2026"
+   },
+   "why": "notice-type 'compl' (contract completion) was unmapped and fell to requirement_defined; 77 'can-modif' did too."
+  },
+  {
+   "id": "ted_contract_modification_is_not_open",
+   "source": "ted",
+   "raw": {
+    "notice-type": "can-modif",
+    "publication-number": "355753-2026",
+    "classification-cpv": [
+     "35513200"
+    ],
+    "buyer-name": {
+     "por": [
+      "Direção Regional das Pescas"
+     ]
+    },
+    "publication-date": "2026-05-26+02:00",
+    "notice-title": {
+     "hun": "Portugália – Kutató segédhajó – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "lav": "Portugāle – Palīgkuģis pētniecības darbiem – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "swe": "Portugal – Hjälpfartyg för forskning – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "gle": "An Phortaingéil – Auxiliary research vessel – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "ell": "Πορτογαλία – Βοηθητικά ερευνητικά σκάφη – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "spa": "Portugal – Buques auxiliares de investigación – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "est": "Portugal – Abistavad uurimisalused – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "nld": "Portugal – Reserve onderzoeksvaartuig – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "fin": "Portugali – Apututkimusalus – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "pol": "Portugalia – Pomocnicze okręty badawcze – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "hrv": "Portugal – Pomoćno istraživačko plovilo – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "ces": "Portugalsko – Pomocná průzkumná plavidla – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "dan": "Portugal – Hjælpefartøj til forskning – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "ron": "Portugalia – Navă de cercetare auxiliară – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "por": "Portugal – Navio auxiliar de investigação – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "slk": "Portugalsko – Pomocné prieskumné plavidlo – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "fra": "Portugal – Navire de recherche auxiliaire – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "mlt": "Il-Portugall – Bastiment ta' riċerka awżiljari – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "deu": "Portugal – Forschungsschiff – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "lit": "Portugalija – Pagalbiniai paieškos laivai – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "ita": "Portogallo – Imbarcazioni ausiliarie di ricerca – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "bul": "Пopтyгaлия – Помощен изследователски кораб – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "slv": "Portugalska – Pomožna raziskovalna plovila – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR",
+     "eng": "Portugal – Auxiliary research vessel – Aquisição de um Navio de Investigação para a Região Autónoma dos Açores PRR"
+    },
+    "buyer-country": [
+     "PRT"
+    ]
+   },
+   "expect": {
+    "stage": "contract_awarded",
+    "external_ref": "355753-2026"
+   },
+   "why": "notice-type 'can-modif'"
+  },
+  {
+   "id": "ted_contract_notice_stays_open",
+   "source": "ted",
+   "raw": {
+    "deadline-receipt-request": [
+     "2016-11-11T13:00:00+01:00"
+    ],
+    "notice-type": "cn-standard",
+    "publication-number": "350959-2016",
+    "classification-cpv": [
+     "34139100",
+     "34144211",
+     "35110000"
+    ],
+    "buyer-name": {
+     "deu": [
+      "Landeshauptstadt Schwerin; Die Oberbürgermeisterin, Fachdienst Brandschutz und Rettungsdienst"
+     ]
+    },
+    "publication-date": "2016-10-08+02:00",
+    "notice-title": {
+     "swe": "Tyskland-Schwerin: Lastbilar med maskinstege",
+     "lav": "Vācija-Schwerin: Kravas automobiļi ar grozāmām kāpnēm",
+     "hun": "Németország-Schwerin: Forgólétrás tűzoltóautók",
+     "gle": "Ghearmáin, an-Schwerin: Turntable-ladder trucks",
+     "ell": "Γερμανία-Schwerin: Φορτηγά με περιστρεφόμενη κλίμακα",
+     "spa": "Alemania-Schwerin: Camiones con escalera giratoria",
+     "est": "Saksamaa-Schwerin: Redelautod",
+     "nld": "Duitsland-Schwerin: Autoladders",
+     "fin": "Saksa-Schwerin: Tikasautot",
+     "pol": "Niemcy-Schwerin: Pojazdy ciężarowe z drabiną obrotową",
+     "hrv": "Njemačka-Schwerin: Kamioni s okretnim ljestvama",
+     "dan": "Tyskland-Schwerin: Lastbiler med drejestige",
+     "ron": "Germania-Schwerin: Camioane cu scară turnantă",
+     "ces": "Německo-Schwerin: Vozidla s otočným žebříkem",
+     "por": "Alemanha-Schwerin: Veículos-escada com plataforma giratória",
+     "slk": "Nemecko-Schwerin: Vozidlá s otočným rebríkom",
+     "mlt": "il-Ġermanja-Schwerin: Trakkijiet bis-slielen fuq pjattaforma li ddur",
+     "fra": "Allemagne-Schwerin: Camions de lutte contre l'incendie à échelle pivotante",
+     "deu": "Deutschland-Schwerin: Fahrzeuge mit Drehleiter",
+     "lit": "Vokietija, VFR-Schwerin: Sunkvežimiai su sukamomis kopėčiomis",
+     "ita": "Germania-Schwerin: Autoscale",
+     "bul": "Гepмaния-Schwerin: Камиони с въртяща се подвижна стълба",
+     "slv": "Nemčija-Schwerin: Vozila z vrtljivo lestvijo",
+     "eng": "Germany-Schwerin: Turntable-ladder trucks"
+    },
+    "buyer-country": [
+     "DEU"
+    ]
+   },
+   "expect": {
+    "stage": "rfp_issued",
+    "external_ref": "350959-2016"
+   },
+   "why": "control: a call for competition stays open"
   }
  ]
 }

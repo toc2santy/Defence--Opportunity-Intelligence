@@ -4129,10 +4129,12 @@ what the source says. Three automatic layers now check that, with no human step:
    180 days.
 2. `app/source_reconcile.py`: re-reads stored tenders from the source itself and corrects ONLY
    `stage` and `response_deadline` (never name/buyer/code/link/contacts, never deletes;
-   cancelled/void are only counted). Adapters: SECOP II (Socrata by id) and DNCP Paraguay
-   (OCDS record API, with retries — that portal drops connections and truncates JSON).
+   cancelled/void are only counted). Adapters: SECOP II (Socrata by id), DNCP Paraguay
+   (OCDS record API, with retries — that portal drops connections and truncates JSON) and EU
+   TED (search by publication number, re-running OUR normalizer on the answer). Batch limit
+   5,000 rows per source per run.
    Weekly Sun 06:15 UTC + `POST /admin/source-reconcile/run?source=&dry_run=&sample=`. Sources
-   without an adapter (SAM.gov, TED, CanadaBuys, UK, AusTender, CPPP, South Africa, ProZorro)
+   without an adapter (SAM.gov, CanadaBuys, UK, AusTender, CPPP, South Africa, ProZorro)
    are reported `not_reconcilable`, never silently skipped. A run that cannot complete is
    recorded in data health as a warning. `colombia_refresh.refresh_colombia_status` now just
    delegates to it.
@@ -4146,6 +4148,20 @@ Paraguay fix: `_stage_for` matched only masculine "ADJUDICADO"; DNCP writes "Adj
 "ADJUDICAD"/"FIRMAD" or OCDS `tender.status == complete` -> `contract_awarded`; a published
 award alone is deliberately NOT used (multi-lot tenders can be partly awarded). The closing
 date (`tenderPeriod.endDate`) is now read and stored.
+
+First-scan follow-ups (same day): (a) `impossible_deadline` first used "> 5 years ahead", which
+raised false errors — 16 TED/CanadaBuys tenders have REAL closing dates in 2032-2050 (dynamic
+purchasing systems, supply arrangements); now only "< 2000 or > 50 years ahead". (b) The scan
+found 104 TED notices on the `requirement_defined` floor; checked against TED itself they were
+77 `can-modif`, 1 `compl`, 5 `pin-buyer`, 4 `pin-rtl`, 10 `qu-sy`, 7 `pmc`. Now mapped:
+`can-modif`/`compl` -> contract_awarded, `pin-buyer`/`pin-rtl` -> early_concept; `qu-sy` and `pmc`
+stay on the floor on purpose. (c) First TED reconciliation (2,877 rows): 89 stage corrections —
+78 -> awarded, 9 -> early_concept, and 2 stored as AWARDED that TED itself lists as `cn-standard`
+(an open call, no winners, no award rows) -> rfp_issued. Fingerprint of
+id/name/link/buyer/code and row counts unchanged. A second SECOP pass found 0 mismatches.
+Known and correct, not bugs: South Africa freshness error (upstream API down), CPPP freshness
+warning, SECOP II 60% of open tenders without a closing date (the dataset omits it for many
+phases).
 
 Findings from the first scan that are NOT bugs but matter: of 3,203 tenant opportunities only
 ~616 (19%) are on live, un-awarded, in-date tenders (the dashboard already separates them into
