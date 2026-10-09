@@ -49,6 +49,13 @@ async def run_scheduled_source(source_config: IngestionSourceConfig, session_fac
         try:
             result = await source_config.run_fn(session, triggered_by_user_id="system-scheduler")
             print(f"[scheduled ingestion:{source_config.code}] {result}")
+            # Inline data-quality check of what this run just wrote (2026-10).
+            # Never allowed to turn a successful ingestion into a failure.
+            try:
+                from app.data_health import run_data_health
+                await run_data_health(session, only_source=source_config.display_name, trigger="after_ingestion")
+            except Exception as he:
+                print(f"[data health:{source_config.code}] check failed (ingestion unaffected): {he}")
         except IngestionConfigError as e:
             print(f"[scheduled ingestion:{source_config.code}] skipped: {e}")
         except Exception as e:

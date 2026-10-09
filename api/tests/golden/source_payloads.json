@@ -1,0 +1,2710 @@
+{
+ "generated_from": "live source payloads, 2026-10-09",
+ "cases": [
+  {
+   "id": "secop_awarded_but_phase_says_offers",
+   "source": "secop",
+   "raw": {
+    "entidad": "ARMADA NACIONAL BASE NAVAL No. 6 ARC BOGOTA",
+    "nit_entidad": "800141644",
+    "departamento_entidad": "Distrito Capital de Bogotá",
+    "ciudad_entidad": "Bogotá",
+    "ordenentidad": "Nacional",
+    "codigo_pci": "Centralizada",
+    "id_del_proceso": "CO1.REQ.10706496",
+    "referencia_del_proceso": "0166-ARC-CBNL06-2026 (Manifestación de interés (Menor Cuantía)) (Presentación de oferta)",
+    "ppi": "700403058",
+    "id_del_portafolio": "CO1.BDOS.10334481",
+    "nombre_del_procedimiento": "ADQUISICIÓN DE UN (01) CONJUNTO DE HÉLICE PARA LA AERONAVE CN235-300 MATRÍCULA MILITAR ARC803 DEL COMANDO DE ALISTAMIENTO DE AVIACIÓN NAVAL (Manifestación de interés (Menor Cuantía)) (Presentación de",
+    "descripci_n_del_procedimiento": "ADQUISICIÓN DE UN (01) CONJUNTO DE HÉLICE PARA LA AERONAVE CN235-300 MATRÍCULA MILITAR ARC803 DEL COMANDO DE ALISTAMIENTO DE AVIACIÓN NAVAL",
+    "fase": "Presentación de oferta",
+    "fecha_de_publicacion_del": "2026-07-22T00:00:00.000",
+    "fecha_de_ultima_publicaci": "2026-07-22T00:00:00.000",
+    "fecha_de_publicacion_fase_3": "2026-07-22T00:00:00.000",
+    "precio_base": "5800133000",
+    "modalidad_de_contratacion": "Selección Abreviada de Menor Cuantía",
+    "justificaci_n_modalidad_de": "Proceso de licitación pública declarado desierto",
+    "duracion": "5",
+    "unidad_de_duracion": "Mes(es)",
+    "fecha_de_recepcion_de": "2026-08-18T00:00:00.000",
+    "fecha_de_apertura_de_respuesta": "2026-08-18T00:00:00.000",
+    "fecha_de_apertura_efectiva": "2026-08-18T00:00:00.000",
+    "ciudad_de_la_unidad_de": "Bogotá",
+    "nombre_de_la_unidad_de": "CAVNA",
+    "proveedores_invitados": "12",
+    "proveedores_con_invitacion": "12",
+    "visualizaciones_del": "25",
+    "proveedores_que_manifestaron": "0",
+    "respuestas_al_procedimiento": "2",
+    "respuestas_externas": "0",
+    "conteo_de_respuestas_a_ofertas": "0",
+    "proveedores_unicos_con": "2",
+    "numero_de_lotes": "0",
+    "estado_del_procedimiento": "Seleccionado",
+    "id_estado_del_procedimiento": "70",
+    "adjudicado": "Si",
+    "id_adjudicacion": "CO1.AWD.2677737",
+    "codigoproveedor": "737177147",
+    "departamento_proveedor": "No Definido",
+    "ciudad_proveedor": "Bogotá",
+    "fecha_adjudicacion": "2026-08-27T00:00:00.000",
+    "valor_total_adjudicacion": "5788900000",
+    "nombre_del_adjudicador": "MARIA ALEJANDRA PEREZ QUITIAN",
+    "nombre_del_proveedor": "UT PROPELLER ARC",
+    "nit_del_proveedor_adjudicado": "No Definido",
+    "codigo_principal_de_categoria": "UNSPECIFIED",
+    "estado_de_apertura_del_proceso": "Cerrado",
+    "tipo_de_contrato": "Suministros",
+    "subtipo_de_contrato": "No Definido",
+    "categorias_adicionales": "No definido",
+    "urlproceso": {
+     "url": "https://community.secop.gov.co/Public/Tendering/OpportunityDetail/Index?noticeUID=CO1.NTC.10560901"
+    },
+    "codigo_entidad": "700403058",
+    "estado_resumen": "Adjudicado"
+   },
+   "expect": {
+    "stage": "contract_awarded",
+    "response_deadline": "2026-08-18T00:00:00",
+    "winner_name": "UT PROPELLER ARC",
+    "external_ref": "CO1.REQ.10706496"
+   },
+   "why": "User-reported 2026-10-09: awarded 2026-08-27 yet fase still 'Presentación de oferta' -> was stored as open."
+  },
+  {
+   "id": "secop_genuinely_open",
+   "source": "secop",
+   "raw": {
+    "entidad": "ARMADA NACIONAL - GRUPO GUARDACOSTAS DEL AMAZONAS",
+    "nit_entidad": "838000055",
+    "departamento_entidad": "Amazonas",
+    "ciudad_entidad": "Leticia",
+    "ordenentidad": "Nacional",
+    "codigo_pci": "Centralizada",
+    "id_del_proceso": "CO1.REQ.11169326",
+    "referencia_del_proceso": "018-ARC-GAMA-2026",
+    "ppi": "701847287",
+    "id_del_portafolio": "CO1.BDOS.10982418",
+    "nombre_del_procedimiento": "SERVICIO DE REVISIÓN TÉCNICO MECÁNICA Y EMISIÓN DE GASES PARA LOS VEHÍCULOS AUTOMOTORES DEL GRUPO DE GUARDACOSTAS DE LA AMAZONÍA",
+    "descripci_n_del_procedimiento": "SERVICIO DE REVISIÓN TÉCNICO MECÁNICA Y EMISIÓN DE GASES PARA LOS VEHÍCULOS AUTOMOTORES DEL GRUPO DE GUARDACOSTAS DE LA AMAZONÍA",
+    "fase": "Presentación de oferta",
+    "fecha_de_publicacion_del": "2026-10-06T00:00:00.000",
+    "fecha_de_ultima_publicaci": "2026-10-06T00:00:00.000",
+    "fecha_de_publicacion_fase_3": "2026-10-06T00:00:00.000",
+    "precio_base": "1590375",
+    "modalidad_de_contratacion": "Mínima cuantía",
+    "justificaci_n_modalidad_de": "Presupuesto inferior al 10% de la menor cuantía",
+    "duracion": "1",
+    "unidad_de_duracion": "Mes(es)",
+    "fecha_de_recepcion_de": "2026-10-13T00:00:00.000",
+    "fecha_de_apertura_de_respuesta": "2026-10-13T00:00:00.000",
+    "ciudad_de_la_unidad_de": "No Aplica",
+    "nombre_de_la_unidad_de": "CGAMA",
+    "proveedores_invitados": "0",
+    "proveedores_con_invitacion": "0",
+    "visualizaciones_del": "0",
+    "proveedores_que_manifestaron": "0",
+    "respuestas_al_procedimiento": "0",
+    "respuestas_externas": "0",
+    "conteo_de_respuestas_a_ofertas": "0",
+    "proveedores_unicos_con": "0",
+    "numero_de_lotes": "0",
+    "estado_del_procedimiento": "Publicado",
+    "id_estado_del_procedimiento": "50",
+    "adjudicado": "No",
+    "id_adjudicacion": "No Adjudicado",
+    "codigoproveedor": "No Definido",
+    "departamento_proveedor": "No Definido",
+    "ciudad_proveedor": "No Definido",
+    "valor_total_adjudicacion": "0",
+    "nombre_del_adjudicador": "No Adjudicado",
+    "nombre_del_proveedor": "No Definido",
+    "nit_del_proveedor_adjudicado": "No Definido",
+    "codigo_principal_de_categoria": "UNSPECIFIED",
+    "estado_de_apertura_del_proceso": "Abierto",
+    "tipo_de_contrato": "Prestación de servicios",
+    "subtipo_de_contrato": "No Definido",
+    "categorias_adicionales": "No definido",
+    "urlproceso": {
+     "url": "https://community.secop.gov.co/Public/Tendering/OpportunityDetail/Index?noticeUID=CO1.NTC.11024339"
+    },
+    "codigo_entidad": "701847287",
+    "estado_resumen": "Presentación de oferta"
+   },
+   "expect": {
+    "stage": "rfp_issued",
+    "external_ref": "CO1.REQ.11169326",
+    "response_deadline": "2026-10-13T00:00:00"
+   },
+   "why": "Control: a not-awarded process with a future closing date must stay open."
+  },
+  {
+   "id": "secop_cancelled",
+   "source": "secop",
+   "raw": {
+    "entidad": "ARMADA NACIONAL ESCUELA NAVAL DE CADETES ALMIRANTE PADILLA",
+    "nit_entidad": "800141648",
+    "departamento_entidad": "Bolívar",
+    "ciudad_entidad": "Cartagena",
+    "ordenentidad": "Nacional",
+    "codigo_pci": "Centralizada",
+    "id_del_proceso": "CO1.REQ.7111837",
+    "referencia_del_proceso": "077 ARC-ENAP-2024",
+    "ppi": "701652109",
+    "id_del_portafolio": "CO1.BDOS.6979286",
+    "nombre_del_procedimiento": "PRESTACION DEL SERVICIO DE MANTENIMIENTO PREVENTIVO; CORRECTIVO E INSTALACION DE LOS EQUIPOS Y SOFTWARE DE LOS SISTEMAS DE CIRCUITO CERRADO DE TELEVISIÓN; Y CONTROL DE ACCESO DE LA ESCUELA NAVAL DE CA",
+    "descripci_n_del_procedimiento": "PRESTACIÓN DEL SERVICIO DE MANTENIMIENTO PREVENTIVO, CORRECTIVO E INSTALACION DE LOS EQUIPOS Y SOFTWARE DE LOS SISTEMAS DE CIRCUITO CERRADO DE TELEVISIÓN, Y CONTROL DE ACCESO DE LA ESCUELA NAVAL DE CADETES  ALMIRANTE PADILLA , DE CONFORMIDAD CON LAS ESPECIFICACIONES DESCRITAS EN EL ANEXO TÉCNICO",
+    "fase": "Presentación de oferta",
+    "fecha_de_publicacion_del": "2024-11-01T00:00:00.000",
+    "fecha_de_ultima_publicaci": "2024-11-01T00:00:00.000",
+    "fecha_de_publicacion_fase_3": "2024-11-01T00:00:00.000",
+    "precio_base": "130000000",
+    "modalidad_de_contratacion": "Mínima cuantía",
+    "justificaci_n_modalidad_de": "Presupuesto inferior al 10% de la menor cuantía",
+    "duracion": "2",
+    "unidad_de_duracion": "Mes(es)",
+    "fecha_de_recepcion_de": "2024-11-12T00:00:00.000",
+    "fecha_de_apertura_de_respuesta": "2024-11-12T00:00:00.000",
+    "fecha_de_apertura_efectiva": "2024-11-12T00:00:00.000",
+    "ciudad_de_la_unidad_de": "Cartagena",
+    "nombre_de_la_unidad_de": "ESCUELA NAVAL DE CADETES ALMIRANTE PADILLA",
+    "proveedores_invitados": "0",
+    "proveedores_con_invitacion": "0",
+    "visualizaciones_del": "29",
+    "proveedores_que_manifestaron": "0",
+    "respuestas_al_procedimiento": "1",
+    "respuestas_externas": "0",
+    "conteo_de_respuestas_a_ofertas": "0",
+    "proveedores_unicos_con": "1",
+    "numero_de_lotes": "0",
+    "estado_del_procedimiento": "Cancelado",
+    "id_estado_del_procedimiento": "100",
+    "adjudicado": "No",
+    "id_adjudicacion": "No Adjudicado",
+    "codigoproveedor": "No Definido",
+    "departamento_proveedor": "No Definido",
+    "ciudad_proveedor": "No Definido",
+    "valor_total_adjudicacion": "0",
+    "nombre_del_adjudicador": "No Adjudicado",
+    "nombre_del_proveedor": "No Definido",
+    "nit_del_proveedor_adjudicado": "No Definido",
+    "codigo_principal_de_categoria": "V1.80101601",
+    "estado_de_apertura_del_proceso": "Cerrado",
+    "tipo_de_contrato": "Prestación de servicios",
+    "subtipo_de_contrato": "No Definido",
+    "categorias_adicionales": "No definido",
+    "urlproceso": {
+     "url": "https://community.secop.gov.co/Public/Tendering/OpportunityDetail/Index?noticeUID=CO1.NTC.6991710"
+    },
+    "codigo_entidad": "701652109",
+    "estado_resumen": "Presentación de oferta"
+   },
+   "expect": {
+    "stage": null
+   },
+   "why": "Cancelled procedures are dropped, never shown as live."
+  },
+  {
+   "id": "paraguay_490182",
+   "source": "paraguay",
+   "raw": {
+    "id": "1f1603c2-9674-6bf8-9b6e-0596221c0dbd-1787233972",
+    "awards": [
+     {
+      "id": "1f190ff3-8db8-6f4c-9e45-6d9aa117fc97",
+      "status": "active",
+      "statusDetails": "publicado",
+      "date": "2026-08-03T00:00:00-04:00",
+      "value": {
+       "amount": 99485000,
+       "currency": "PYG"
+      },
+      "suppliers": [
+       {
+        "name": "GUILLERMINA LEZCANO LEZCANO",
+        "id": "PY-RUC-1175492-3"
+       }
+      ],
+      "documents": [
+       {
+        "id": "1f1925b9-0116-6b9e-a53f-5f72351d3134",
+        "datePublished": "2026-08-07T09:28:58-04:00",
+        "title": "nota-comunicacion-6a75cf8a24ffc.pdf",
+        "url": "https://www.contrataciones.gov.py/api/resultado/1f190ff0-ab5a-63a0-9456-952d4c06af1d/files/0677c453-9465-4d2f-bba2-a5511d84ef1c/download",
+        "language": "es",
+        "documentTypeDetails": "Nota de Contestación"
+       },
+       {
+        "id": "1f1925b8-165d-6bd4-8b55-d71d021c4b69",
+        "datePublished": "2026-08-07T09:28:33-04:00",
+        "title": "informe-evaluacion-6a75cf7180975.pdf",
+        "url": "https://www.contrataciones.gov.py/api/resultado/1f190ff0-ab5a-63a0-9456-952d4c06af1d/files/56c02575-38c0-4142-b4ce-3f2180f580d1/download",
+        "language": "es",
+        "documentTypeDetails": "Informe de Evaluación"
+       },
+       {
+        "id": "1f1925b7-4833-657e-80fe-839806946b14",
+        "datePublished": "2026-08-07T09:28:11-04:00",
+        "title": "resolucion-adjudicacion-6a75cf5be0c03.pdf",
+        "url": "https://www.contrataciones.gov.py/api/resultado/1f190ff0-ab5a-63a0-9456-952d4c06af1d/files/7015b0ae-4bb1-48f6-b40e-e9cfd68bd4be/download",
+        "language": "es",
+        "documentType": "awardNotice",
+        "documentTypeDetails": "Resolución de Adjudicación"
+       },
+       {
+        "id": "1f1925b7-9fd8-62a2-9236-2b9a24959a4d",
+        "datePublished": "2026-08-07T09:28:21-04:00",
+        "title": "cuadro-comparativo-6a75cf651a8ea.pdf",
+        "url": "https://www.contrataciones.gov.py/api/resultado/1f190ff0-ab5a-63a0-9456-952d4c06af1d/files/6f05961c-fd9b-4c47-8bb3-251608059e05/download",
+        "language": "es",
+        "documentTypeDetails": "Cuadro Comparativo de Ofertas"
+       },
+       {
+        "id": "dix2iRRDbik=",
+        "title": "URL de la Adjudicación",
+        "url": "https://www.contrataciones.gov.py/licitaciones/adjudicacion/1f190ff0-ab5a-63a0-9456-952d4c06af1d/resumen-adjudicacion.html",
+        "language": "es",
+        "documentType": "awardNotice",
+        "format": "text/html"
+       }
+      ],
+      "items": [
+       {
+        "id": "1f163297-2c13-6daa-afce-919fc63b6172",
+        "description": "Chaleco táctico para perro",
+        "classification": {
+         "scheme": "catalogoNivel5DNCP",
+         "id": "46181509-999",
+         "description": "Trajes protectores",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/46181509-999"
+        },
+        "additionalClassifications": [
+         {
+          "scheme": "UNSPSC",
+          "id": "46181509",
+          "description": "Ropa protectora contra para materias peligrosas",
+          "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/46181509"
+         }
+        ],
+        "quantity": 24,
+        "unit": {
+         "name": "Unidad",
+         "id": "UNI",
+         "value": {
+          "amount": 225000,
+          "currency": "PYG"
+         }
+        },
+        "relatedLot": "1f163297-2c11-6e92-9629-919fc63b6172",
+        "attributes": [
+         {
+          "value": "NACIONAL",
+          "name": "Procedencia",
+          "id": "1"
+         },
+         {
+          "value": "COMERCIAL CELESTIAL",
+          "name": "Fabricante",
+          "id": "3"
+         },
+         {
+          "value": "CELESTIAL",
+          "name": "Marca",
+          "id": "4"
+         },
+         {
+          "name": "Orden",
+          "value": "5",
+          "id": "7"
+         },
+         {
+          "name": "nro_certificado_origen_nacional",
+          "value": "NO APLICA",
+          "id": "338"
+         }
+        ]
+       },
+       {
+        "id": "1f16329c-e220-612a-9475-7d7704723978",
+        "description": "Monjitas - antiflma (pasa montaña)",
+        "classification": {
+         "scheme": "catalogoNivel5DNCP",
+         "id": "46182003-001",
+         "description": "Mascara de gas",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/46182003-001"
+        },
+        "additionalClassifications": [
+         {
+          "scheme": "UNSPSC",
+          "id": "46182003",
+          "description": "Mascaras de gas",
+          "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/46182003"
+         }
+        ],
+        "quantity": 24,
+        "unit": {
+         "name": "Unidad",
+         "id": "UNI",
+         "value": {
+          "amount": 730000,
+          "currency": "PYG"
+         }
+        },
+        "relatedLot": "1f16329c-e21d-6f6a-bf8b-7d7704723978",
+        "attributes": [
+         {
+          "value": "NACIONAL",
+          "name": "Procedencia",
+          "id": "1"
+         },
+         {
+          "value": "COMERCIAL CELESTIAL",
+          "name": "Fabricante",
+          "id": "3"
+         },
+         {
+          "value": "CELESTIAL",
+          "name": "Marca",
+          "id": "4"
+         },
+         {
+          "name": "Orden",
+          "value": "8",
+          "id": "7"
+         },
+         {
+          "name": "nro_certificado_origen_nacional",
+          "value": "NO APLICA",
+          "id": "338"
+         }
+        ]
+       },
+       {
+        "id": "1f16328f-874b-6770-ac47-851c5ca92846",
+        "description": "Mochila de campaña tactica",
+        "classification": {
+         "scheme": "catalogoNivel5DNCP",
+         "id": "53121603-999",
+         "description": "Mochila Tactica",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/53121603-999"
+        },
+        "additionalClassifications": [
+         {
+          "scheme": "UNSPSC",
+          "id": "53121603",
+          "description": "Mochilas y cartucheras",
+          "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/53121603"
+         }
+        ],
+        "quantity": 25,
+        "unit": {
+         "name": "Unidad",
+         "id": "UNI",
+         "value": {
+          "amount": 248000,
+          "currency": "PYG"
+         }
+        },
+        "relatedLot": "1f16328f-8749-66c8-8d41-851c5ca92846",
+        "attributes": [
+         {
+          "value": "NACIONAL",
+          "name": "Procedencia",
+          "id": "1"
+         },
+         {
+          "value": "COMERCIAL CELESTIAL",
+          "name": "Fabricante",
+          "id": "3"
+         },
+         {
+          "value": "CELESTIAL",
+          "name": "Marca",
+          "id": "4"
+         },
+         {
+          "name": "Orden",
+          "value": "2",
+          "id": "7"
+         },
+         {
+          "name": "nro_certificado_origen_nacional",
+          "value": "NO APLICA",
+          "id": "338"
+         }
+        ]
+       },
+       {
+        "id": "1f16328c-cc55-60f8-b9ae-45b9923c6029",
+        "description": "Mochila Tactica",
+        "classification": {
+         "scheme": "catalogoNivel5DNCP",
+         "id": "53121603-999",
+         "description": "Mochila Tactica",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/53121603-999"
+        },
+        "additionalClassifications": [
+         {
+          "scheme": "UNSPSC",
+          "id": "53121603",
+          "description": "Mochilas y cartucheras",
+          "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/53121603"
+         }
+        ],
+        "quantity": 125,
+        "unit": {
+         "name": "Unidad",
+         "id": "UNI",
+         "value": {
+          "amount": 258000,
+          "currency": "PYG"
+         }
+        },
+        "relatedLot": "1f16328c-cc52-6cfe-9dd1-45b9923c6029",
+        "attributes": [
+         {
+          "value": "NACIONAL",
+          "name": "Procedencia",
+          "id": "1"
+         },
+         {
+          "value": "COMERCIAL CELESTIAL",
+          "name": "Fabricante",
+          "id": "3"
+         },
+         {
+          "value": "CELESTIAL",
+          "name": "Marca",
+          "id": "4"
+         },
+         {
+          "name": "Orden",
+          "value": "1",
+          "id": "7"
+         },
+         {
+          "name": "nro_certificado_origen_nacional",
+          "value": "NO APLICA",
+          "id": "338"
+         }
+        ]
+       },
+       {
+        "id": "1f163298-cd01-62f2-905e-0dbbc20c7466",
+        "description": "Lentes o gafas protectoras",
+        "classification": {
+         "scheme": "catalogoNivel5DNCP",
+         "id": "46181811-002",
+         "description": "Lentes o gafas protectoras",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/46181811-002"
+        },
+        "additionalClassifications": [
+         {
+          "scheme": "UNSPSC",
+          "id": "46181811",
+          "description": "Lentes o gafas de proteccion",
+          "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/46181811"
+         }
+        ],
+        "quantity": 24,
+        "unit": {
+         "name": "Unidad",
+         "id": "UNI",
+         "value": {
+          "amount": 135000,
+          "currency": "PYG"
+         }
+        },
+        "relatedLot": "1f163298-ccfc-61bc-b9b4-0dbbc20c7466",
+        "attributes": [
+         {
+          "value": "NACIONAL",
+          "name": "Procedencia",
+          "id": "1"
+         },
+         {
+          "value": "COMERCIAL CELESTIAL",
+          "name": "Fabricante",
+          "id": "3"
+         },
+         {
+          "value": "CELESTIAL",
+          "name": "Marca",
+          "id": "4"
+         },
+         {
+          "name": "Orden",
+          "value": "6",
+          "id": "7"
+         },
+         {
+          "name": "nro_certificado_origen_nacional",
+          "value": "NO APLICA",
+          "id": "338"
+         }
+        ]
+       },
+       {
+        "id": "1f163291-3c6f-6510-94cf-7d509c16ace1",
+        "description": "Chaleco táctico",
+        "classification": {
+         "scheme": "catalogoNivel5DNCP",
+         "id": "46181507-005",
+         "description": "Chaleco tactico",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/46181507-005"
+        },
+        "additionalClassifications": [
+         {
+          "scheme": "UNSPSC",
+          "id": "46181507",
+          "description": "Chalecos de proteccion",
+          "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/46181507"
+         }
+        ],
+        "quantity": 125,
+        "unit": {
+         "name": "Unidad",
+         "id": "UNI",
+         "value": {
+          "amount": 279000,
+          "currency": "PYG"
+         }
+        },
+        "relatedLot": "1f163291-3c6d-66a2-a2a7-7d509c16ace1",
+        "attributes": [
+         {
+          "value": "NACIONAL",
+          "name": "Procedencia",
+          "id": "1"
+         },
+         {
+          "value": "COMERCIAL CELESTIAL",
+          "name": "Fabricante",
+          "id": "3"
+         },
+         {
+          "value": "CELESTIAL",
+          "name": "Marca",
+          "id": "4"
+         },
+         {
+          "name": "Orden",
+          "value": "3",
+          "id": "7"
+         },
+         {
+          "name": "nro_certificado_origen_nacional",
+          "value": "NO APLICA",
+          "id": "338"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "id": "1f190ff6-9330-6bb6-a5bc-0d49b3960690",
+      "status": "active",
+      "statusDetails": "publicado",
+      "date": "2026-08-03T00:00:00-04:00",
+      "value": {
+       "amount": 405990000,
+       "currency": "PYG"
+      },
+      "suppliers": [
+       {
+        "name": "VICTOR GERARDO MENDOZA BENITEZ",
+        "id": "PY-RUC-1535917-4"
+       }
+      ],
+      "documents": [
+       {
+        "id": "1f1925b7-9fd8-62a2-9236-2b9a24959a4d",
+        "datePublished": "2026-08-07T09:28:21-04:00",
+        "title": "cuadro-comparativo-6a75cf651a8ea.pdf",
+        "url": "https://www.contrataciones.gov.py/api/resultado/1f190ff0-ab5a-63a0-9456-952d4c06af1d/files/6f05961c-fd9b-4c47-8bb3-251608059e05/download",
+        "language": "es",
+        "documentTypeDetails": "Cuadro Comparativo de Ofertas"
+       },
+       {
+        "id": "dix2iRRDbik=",
+        "title": "URL de la Adjudicación",
+        "url": "https://www.contrataciones.gov.py/licitaciones/adjudicacion/1f190ff0-ab5a-63a0-9456-952d4c06af1d/resumen-adjudicacion.html",
+        "language": "es",
+        "documentType": "awardNotice",
+        "format": "text/html"
+       },
+       {
+        "id": "1f1925b8-165d-6bd4-8b55-d71d021c4b69",
+        "datePublished": "2026-08-07T09:28:33-04:00",
+        "title": "informe-evaluacion-6a75cf7180975.pdf",
+        "url": "https://www.contrataciones.gov.py/api/resultado/1f190ff0-ab5a-63a0-9456-952d4c06af1d/files/56c02575-38c0-4142-b4ce-3f2180f580d1/download",
+        "language": "es",
+        "documentTypeDetails": "Informe de Evaluación"
+       },
+       {
+        "id": "1f1925b7-4833-657e-80fe-839806946b14",
+        "datePublished": "2026-08-07T09:28:11-04:00",
+        "title": "resolucion-adjudicacion-6a75cf5be0c03.pdf",
+        "url": "https://www.contrataciones.gov.py/api/resultado/1f190ff0-ab5a-63a0-9456-952d4c06af1d/files/7015b0ae-4bb1-48f6-b40e-e9cfd68bd4be/download",
+        "language": "es",
+        "documentType": "awardNotice",
+        "documentTypeDetails": "Resolución de Adjudicación"
+       },
+       {
+        "id": "1f1925b9-0116-6b9e-a53f-5f72351d3134",
+        "datePublished": "2026-08-07T09:28:58-04:00",
+        "title": "nota-comunicacion-6a75cf8a24ffc.pdf",
+        "url": "https://www.contrataciones.gov.py/api/resultado/1f190ff0-ab5a-63a0-9456-952d4c06af1d/files/0677c453-9465-4d2f-bba2-a5511d84ef1c/download",
+        "language": "es",
+        "documentTypeDetails": "Nota de Contestación"
+       }
+      ],
+      "items": [
+       {
+        "id": "1f163294-6b96-637c-b37d-d585df7ea894",
+        "description": "Casco tactico",
+        "classification": {
+         "scheme": "catalogoNivel5DNCP",
+         "id": "46181704-002",
+         "description": "Casco de acero",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/46181704-002"
+        },
+        "additionalClassifications": [
+         {
+          "scheme": "UNSPSC",
+          "id": "46181704",
+          "description": "Cascos de proteccion",
+          "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/46181704"
+         }
+        ],
+        "quantity": 125,
+        "unit": {
+         "name": "Unidad",
+         "id": "UNI",
+         "value": {
+          "amount": 3247920,
+          "currency": "PYG"
+         }
+        },
+        "relatedLot": "1f163294-6b94-62e8-984e-d585df7ea894",
+        "attributes": [
+         {
+          "value": "CHINA",
+          "name": "Procedencia",
+          "id": "1"
+         },
+         {
+          "value": "GUANGZHOU LINGYUE OUTDOOR PRODUCTS LTD",
+          "name": "Fabricante",
+          "id": "3"
+         },
+         {
+          "value": "FMA",
+          "name": "Marca",
+          "id": "4"
+         },
+         {
+          "name": "Orden",
+          "value": "4",
+          "id": "7"
+         },
+         {
+          "name": "nro_certificado_origen_nacional",
+          "value": "NO APLICA",
+          "id": "338"
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "parties": [
+     {
+      "id": "DNCP-SICP-CODE-304",
+      "name": "Ministerio de Defensa Nacional (MDN)",
+      "identifier": {
+       "id": "304",
+       "legalName": "Ministerio de Defensa Nacional (MDN)",
+       "scheme": "DNCP-SICP-CODE"
+      },
+      "additionalIdentifiers": [
+       {
+        "id": "2026.12.5",
+        "legalName": "Ministerio de Defensa Nacional",
+        "scheme": "PY-PGN"
+       }
+      ],
+      "roles": [
+       "buyer"
+      ]
+     },
+     {
+      "id": "DNCP-SICP-CODE-1028",
+      "name": "Comando Logistico Uoc 5 / Ministerio de Defensa Nacional",
+      "identifier": {
+       "scheme": "DNCP-SICP-CODE",
+       "id": "1028",
+       "legalName": "Comando Logistico Uoc 5 / Ministerio de Defensa Nacional"
+      },
+      "contactPoint": {
+       "email": "cf5uoc2025@gmail.com",
+       "name": "TTE 1º INT ANTONIO CHIUZANO",
+       "telephone": "0981531298"
+      },
+      "roles": [
+       "procuringEntity"
+      ],
+      "details": {
+       "level": "Poder Ejecutivo",
+       "entityType": "Organismos de la Administración Central",
+       "type": "Unidad Contratación"
+      },
+      "memberOf": [
+       {
+        "id": "DNCP-SICP-CODE-304",
+        "name": "Ministerio de Defensa Nacional (MDN)"
+       }
+      ]
+     },
+     {
+      "name": "GUILLERMINA LEZCANO LEZCANO",
+      "id": "PY-RUC-1175492-3",
+      "identifier": {
+       "id": "1175492-3",
+       "legalName": "GUILLERMINA LEZCANO LEZCANO",
+       "scheme": "PY-RUC"
+      },
+      "roles": [
+       "supplier",
+       "tenderer"
+      ],
+      "contactPoint": {
+       "name": "GUILLERMINA LEZCANO LEZCANO",
+       "email": "comercialcelestial@gmail.com",
+       "telephone": "0981 471 971"
+      },
+      "address": {
+       "countryName": "Paraguay",
+       "locality": "ASUNCION",
+       "region": "Central",
+       "streetAddress": "CELSA SPERATTI ESQ/ARTIGAS"
+      },
+      "details": {
+       "scale": "sme",
+       "legalEntityTypeDetail": "Persona Física - Servicios Personales",
+       "activityTypes": [
+        "goods",
+        "services"
+       ]
+      }
+     },
+     {
+      "name": "VICTOR GERARDO MENDOZA BENITEZ",
+      "id": "PY-RUC-1535917-4",
+      "identifier": {
+       "id": "1535917-4",
+       "legalName": "VICTOR GERARDO MENDOZA BENITEZ",
+       "scheme": "PY-RUC"
+      },
+      "roles": [
+       "supplier",
+       "tenderer"
+      ],
+      "contactPoint": {
+       "name": "VICTOR GERARDO MENDOZA BENITEZ",
+       "email": "gsmserviciospy@gmail.com",
+       "faxNumber": "+59521300073",
+       "telephone": "+595982150160",
+       "url": "http://www.gsmgroup.com.py"
+      },
+      "address": {
+       "countryName": "Paraguay",
+       "locality": "Asunción",
+       "region": "Central",
+       "streetAddress": "Tte. Villalon e/Dr. Julian Valiente y Abdón Palacios, #4.563"
+      },
+      "details": {
+       "scale": "sme",
+       "legalEntityTypeDetail": "Persona Física - Bienes y Servicios",
+       "activityTypes": [
+        "goods",
+        "services"
+       ],
+       "categories": [
+        {
+         "name": "Materiales e insumos eléctricos, metálicos y no metálicos, Plásticos, cauchos. Repuestos, herramientas, cámaras y cubiertas.",
+         "id": 18
+        },
+        {
+         "name": "Equipos Militares y de Seguridad. Servicio de Seguridad y Vigilancia",
+         "id": 25
+        },
+        {
+         "name": "Servicios de Limpiezas, Mantenimientos y reparaciones menores y mayores de Instalaciones, Maquinarias y Vehículos",
+         "id": 2
+        },
+        {
+         "name": "Maquinarias, Equipos y herramientas mayores - Equipos de transporte",
+         "id": 22
+        },
+        {
+         "name": "Servicios Técnicos",
+         "id": 7
+        },
+        {
+         "name": "Equipos, accesorios y programas computacionales, de oficina, educativos, de imprenta, de comunicación y señalamiento",
+         "id": 24
+        },
+        {
+         "name": "Consultorías, Asesorías e Investigaciones. Estudios y Proyectos de inversión",
+         "id": 5
+        }
+       ]
+      }
+     }
+    ],
+    "tender": {
+     "id": "1f1603c2-9674-6bf8-9b6e-0596221c0dbd",
+     "title": "ADQUISICION DE EQUIPOS MILITARES Y DE SEGURIDAD PARA EL COMANDO LOGISTICO",
+     "status": "complete",
+     "awardCriteria": "priceOnly",
+     "awardCriteriaDetails": "Por Item",
+     "submissionMethod": [
+      "inPerson"
+     ],
+     "bidOpening": {
+      "date": "2026-07-28T08:15:00-04:00",
+      "address": {
+       "streetAddress": "Ruta Transchaco km 13 1/2 UOC N° 5 COMANDO LOGISTICO- CENTRO FINANCIERO - SALON AUDITORIO"
+      }
+     },
+     "submissionMethodDetails": "Lugar entrega ofertas: RUTA TRANSCHACO KM 13/5  - COMANDO LOGISTICO - CENTRO FINANCIERO N° 5 ( UOC 5 )",
+     "statusDetails": "Adjudicada",
+     "enquiriesAddress": {
+      "streetAddress": "SICP"
+     },
+     "clarificationMeetings": [
+      {
+       "address": {
+        "streetAddress": "NO APLICA"
+       },
+       "id": "1"
+      }
+     ],
+     "mainProcurementCategoryDetails": "Bienes - Equipos y Suministros de Defensa Orden Publico, Proteccion y Seguridad",
+     "hasEnquiries": false,
+     "value": {
+      "amount": 526862525,
+      "currency": "PYG"
+     },
+     "datePublished": "2026-07-16T12:36:01-04:00",
+     "tenderPeriod": {
+      "startDate": "2026-07-16T12:36:01-04:00",
+      "endDate": "2026-07-28T08:00:00-04:00",
+      "durationInDays": 11
+     },
+     "awardPeriod": {
+      "startDate": "2026-07-28T08:15:00-04:00"
+     },
+     "enquiryPeriod": {
+      "endDate": "2026-07-23T12:00:00-04:00",
+      "startDate": "2026-07-16T12:36:01-04:00",
+      "durationInDays": 6
+     },
+     "mainProcurementCategory": "services",
+     "additionalProcurementCategories": [
+      "services"
+     ],
+     "procurementMethod": "open",
+     "procurementMethodDetails": "Menor cuantía nacional",
+     "procuringEntity": {
+      "id": "DNCP-SICP-CODE-1028",
+      "name": "Comando Logistico Uoc 5 / Ministerio de Defensa Nacional"
+     },
+     "criteria": [
+      {
+       "id": "1",
+       "title": "Garantía de Mantenimiento de Ofertas",
+       "description": "Los oferentes, proveedores o contratistas deberán garantizar la seriedad de sus ofertas, mediante la garantía de mantenimiento de la oferta",
+       "source": "tenderer",
+       "requirementGroups": [
+        {
+         "id": "1-1",
+         "description": "La garantía debe ser de un cierto porcentaje, periodo y tipo",
+         "requirements": [
+          {
+           "id": "1-1-1",
+           "title": "Porcentaje de la garantia",
+           "expectedValue": "5"
+          },
+          {
+           "id": "1-1-2",
+           "title": "Validez de la garantia en días",
+           "expectedValue": "120"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "lots": [
+      {
+       "id": "1f16328c-cc52-6cfe-9dd1-45b9923c6029",
+       "title": "1 - 1 - Mochila Tactica",
+       "status": "active",
+       "statusDetails": "activo",
+       "value": {
+        "amount": 33500000,
+        "currency": "PYG"
+       },
+       "simultaneousSupply": false,
+       "attributes": [
+        {
+         "name": "Orden",
+         "value": "1",
+         "id": "1"
+        }
+       ]
+      },
+      {
+       "id": "1f16328f-8749-66c8-8d41-851c5ca92846",
+       "title": "2 - 2 - Mochila de campaña tactica",
+       "status": "active",
+       "statusDetails": "activo",
+       "value": {
+        "amount": 7500000,
+        "currency": "PYG"
+       },
+       "simultaneousSupply": false,
+       "attributes": [
+        {
+         "name": "Orden",
+         "value": "2",
+         "id": "2"
+        }
+       ]
+      },
+      {
+       "id": "1f163291-3c6d-66a2-a2a7-7d509c16ace1",
+       "title": "3 - 3 - Chaleco táctico",
+       "status": "active",
+       "statusDetails": "activo",
+       "value": {
+        "amount": 39840625,
+        "currency": "PYG"
+       },
+       "simultaneousSupply": false,
+       "attributes": [
+        {
+         "name": "Orden",
+         "value": "3",
+         "id": "3"
+        }
+       ]
+      },
+      {
+       "id": "1f163294-6b94-62e8-984e-d585df7ea894",
+       "title": "4 - 4 - Casco tactico",
+       "status": "active",
+       "statusDetails": "activo",
+       "value": {
+        "amount": 407190000,
+        "currency": "PYG"
+       },
+       "simultaneousSupply": false,
+       "attributes": [
+        {
+         "name": "Orden",
+         "value": "4",
+         "id": "4"
+        }
+       ]
+      },
+      {
+       "id": "1f163297-2c11-6e92-9629-919fc63b6172",
+       "title": "5 - 5 - Chaleco táctico para perro",
+       "status": "active",
+       "statusDetails": "activo",
+       "value": {
+        "amount": 5730000,
+        "currency": "PYG"
+       },
+       "simultaneousSupply": false,
+       "attributes": [
+        {
+         "name": "Orden",
+         "value": "5",
+         "id": "5"
+        }
+       ]
+      },
+      {
+       "id": "1f163298-ccfc-61bc-b9b4-0dbbc20c7466",
+       "title": "6 - 6 - Lentes o gafas protectoras",
+       "status": "active",
+       "statusDetails": "activo",
+       "value": {
+        "amount": 2849400,
+        "currency": "PYG"
+       },
+       "simultaneousSupply": false,
+       "attributes": [
+        {
+         "name": "Orden",
+         "value": "6",
+         "id": "6"
+        }
+       ]
+      },
+      {
+       "id": "1f16329a-fe0b-63b4-bbfc-d389117e3421",
+       "title": "7 - 7 - Coderas tacticas",
+       "status": "active",
+       "statusDetails": "activo",
+       "value": {
+        "amount": 12312500,
+        "currency": "PYG"
+       },
+       "simultaneousSupply": false,
+       "attributes": [
+        {
+         "name": "Orden",
+         "value": "7",
+         "id": "7"
+        }
+       ]
+      },
+      {
+       "id": "1f16329c-e21d-6f6a-bf8b-7d7704723978",
+       "title": "8 - 8 - Monjitas - antiflma (pasa montaña)",
+       "status": "active",
+       "statusDetails": "activo",
+       "value": {
+        "amount": 17940000,
+        "currency": "PYG"
+       },
+       "simultaneousSupply": false,
+       "attributes": [
+        {
+         "name": "Orden",
+         "value": "8",
+         "id": "8"
+        }
+       ]
+      }
+     ],
+     "items": [
+      {
+       "id": "1f16328c-cc55-60f8-b9ae-45b9923c6029",
+       "description": "Mochila Tactica",
+       "classification": {
+        "scheme": "catalogoNivel5DNCP",
+        "id": "53121603-999",
+        "description": "Mochila Tactica",
+        "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/53121603-999"
+       },
+       "additionalClassifications": [
+        {
+         "scheme": "UNSPSC",
+         "id": "53121603",
+         "description": "Mochilas y cartucheras",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/53121603"
+        }
+       ],
+       "quantity": 125,
+       "unit": {
+        "name": "Unidad",
+        "id": "UNI",
+        "value": {
+         "amount": 268000,
+         "currency": "PYG"
+        }
+       },
+       "relatedLot": "1f16328c-cc52-6cfe-9dd1-45b9923c6029",
+       "attributes": [
+        {
+         "name": "Presentacion",
+         "value": "UNIDAD",
+         "id": "1"
+        },
+        {
+         "name": "Orden",
+         "value": "1",
+         "id": "2"
+        }
+       ]
+      },
+      {
+       "id": "1f16328f-874b-6770-ac47-851c5ca92846",
+       "description": "Mochila de campaña tactica",
+       "classification": {
+        "scheme": "catalogoNivel5DNCP",
+        "id": "53121603-999",
+        "description": "Mochila Tactica",
+        "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/53121603-999"
+       },
+       "additionalClassifications": [
+        {
+         "scheme": "UNSPSC",
+         "id": "53121603",
+         "description": "Mochilas y cartucheras",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/53121603"
+        }
+       ],
+       "quantity": 25,
+       "unit": {
+        "name": "Unidad",
+        "id": "UNI",
+        "value": {
+         "amount": 300000,
+         "currency": "PYG"
+        }
+       },
+       "relatedLot": "1f16328f-8749-66c8-8d41-851c5ca92846",
+       "attributes": [
+        {
+         "name": "Presentacion",
+         "value": "UNIDAD",
+         "id": "1"
+        },
+        {
+         "name": "Orden",
+         "value": "2",
+         "id": "2"
+        }
+       ]
+      },
+      {
+       "id": "1f163291-3c6f-6510-94cf-7d509c16ace1",
+       "description": "Chaleco táctico",
+       "classification": {
+        "scheme": "catalogoNivel5DNCP",
+        "id": "46181507-005",
+        "description": "Chaleco tactico",
+        "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/46181507-005"
+       },
+       "additionalClassifications": [
+        {
+         "scheme": "UNSPSC",
+         "id": "46181507",
+         "description": "Chalecos de proteccion",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/46181507"
+        }
+       ],
+       "quantity": 125,
+       "unit": {
+        "name": "Unidad",
+        "id": "UNI",
+        "value": {
+         "amount": 318725,
+         "currency": "PYG"
+        }
+       },
+       "relatedLot": "1f163291-3c6d-66a2-a2a7-7d509c16ace1",
+       "attributes": [
+        {
+         "name": "Presentacion",
+         "value": "UNIDAD",
+         "id": "1"
+        },
+        {
+         "name": "Orden",
+         "value": "3",
+         "id": "2"
+        }
+       ]
+      },
+      {
+       "id": "1f163294-6b96-637c-b37d-d585df7ea894",
+       "description": "Casco tactico",
+       "classification": {
+        "scheme": "catalogoNivel5DNCP",
+        "id": "46181704-002",
+        "description": "Casco de acero",
+        "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/46181704-002"
+       },
+       "additionalClassifications": [
+        {
+         "scheme": "UNSPSC",
+         "id": "46181704",
+         "description": "Cascos de proteccion",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/46181704"
+        }
+       ],
+       "quantity": 125,
+       "unit": {
+        "name": "Unidad",
+        "id": "UNI",
+        "value": {
+         "amount": 3257520,
+         "currency": "PYG"
+        }
+       },
+       "relatedLot": "1f163294-6b94-62e8-984e-d585df7ea894",
+       "attributes": [
+        {
+         "name": "Presentacion",
+         "value": "UNIDAD",
+         "id": "1"
+        },
+        {
+         "name": "Orden",
+         "value": "4",
+         "id": "2"
+        }
+       ]
+      },
+      {
+       "id": "1f163297-2c13-6daa-afce-919fc63b6172",
+       "description": "Chaleco táctico para perro",
+       "classification": {
+        "scheme": "catalogoNivel5DNCP",
+        "id": "46181509-999",
+        "description": "Trajes protectores",
+        "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/46181509-999"
+       },
+       "additionalClassifications": [
+        {
+         "scheme": "UNSPSC",
+         "id": "46181509",
+         "description": "Ropa protectora contra para materias peligrosas",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/46181509"
+        }
+       ],
+       "quantity": 24,
+       "unit": {
+        "name": "Unidad",
+        "id": "UNI",
+        "value": {
+         "amount": 238750,
+         "currency": "PYG"
+        }
+       },
+       "relatedLot": "1f163297-2c11-6e92-9629-919fc63b6172",
+       "attributes": [
+        {
+         "name": "Presentacion",
+         "value": "UNIDAD",
+         "id": "1"
+        },
+        {
+         "name": "Orden",
+         "value": "5",
+         "id": "2"
+        }
+       ]
+      },
+      {
+       "id": "1f163298-cd01-62f2-905e-0dbbc20c7466",
+       "description": "Lentes o gafas protectoras",
+       "classification": {
+        "scheme": "catalogoNivel5DNCP",
+        "id": "46181811-002",
+        "description": "Lentes o gafas protectoras",
+        "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/46181811-002"
+       },
+       "additionalClassifications": [
+        {
+         "scheme": "UNSPSC",
+         "id": "46181811",
+         "description": "Lentes o gafas de proteccion",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/46181811"
+        }
+       ],
+       "quantity": 24,
+       "unit": {
+        "name": "Unidad",
+        "id": "UNI",
+        "value": {
+         "amount": 118725,
+         "currency": "PYG"
+        }
+       },
+       "relatedLot": "1f163298-ccfc-61bc-b9b4-0dbbc20c7466",
+       "attributes": [
+        {
+         "name": "Presentacion",
+         "value": "UNIDAD",
+         "id": "1"
+        },
+        {
+         "name": "Orden",
+         "value": "6",
+         "id": "2"
+        }
+       ]
+      },
+      {
+       "id": "1f16329a-fe0d-6862-b67e-d389117e3421",
+       "description": "Coderas tacticas",
+       "classification": {
+        "scheme": "catalogoNivel5DNCP",
+        "id": "46181514-001",
+        "description": "Codera",
+        "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/46181514-001"
+       },
+       "additionalClassifications": [
+        {
+         "scheme": "UNSPSC",
+         "id": "46181514",
+         "description": "Protectores de codos",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/46181514"
+        }
+       ],
+       "quantity": 125,
+       "unit": {
+        "name": "Unidad",
+        "id": "UNI",
+        "value": {
+         "amount": 98500,
+         "currency": "PYG"
+        }
+       },
+       "relatedLot": "1f16329a-fe0b-63b4-bbfc-d389117e3421",
+       "attributes": [
+        {
+         "name": "Presentacion",
+         "value": "UNIDAD",
+         "id": "1"
+        },
+        {
+         "name": "Orden",
+         "value": "7",
+         "id": "2"
+        }
+       ]
+      },
+      {
+       "id": "1f16329c-e220-612a-9475-7d7704723978",
+       "description": "Monjitas - antiflma (pasa montaña)",
+       "classification": {
+        "scheme": "catalogoNivel5DNCP",
+        "id": "46182003-001",
+        "description": "Mascara de gas",
+        "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/46182003-001"
+       },
+       "additionalClassifications": [
+        {
+         "scheme": "UNSPSC",
+         "id": "46182003",
+         "description": "Mascaras de gas",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/46182003"
+        }
+       ],
+       "quantity": 24,
+       "unit": {
+        "name": "Unidad",
+        "id": "UNI",
+        "value": {
+         "amount": 747500,
+         "currency": "PYG"
+        }
+       },
+       "relatedLot": "1f16329c-e21d-6f6a-bf8b-7d7704723978",
+       "attributes": [
+        {
+         "name": "Presentacion",
+         "value": "UNIDAD",
+         "id": "1"
+        },
+        {
+         "name": "Orden",
+         "value": "8",
+         "id": "2"
+        }
+       ]
+      }
+     ],
+     "tenderers": [
+      {
+       "name": "GUILLERMINA LEZCANO LEZCANO",
+       "id": "PY-RUC-1175492-3"
+      },
+      {
+       "name": "VICTOR GERARDO MENDOZA BENITEZ",
+       "id": "PY-RUC-1535917-4"
+      }
+     ],
+     "documents": [
+      {
+       "id": "b7fc3aa5-87a4-48d0-a9f2-1643bba9c77d",
+       "datePublished": "2026-07-15T12:55:12-04:00",
+       "title": "cdp-1403-6a57a4e3d0f1f.pdf",
+       "url": "https://www.contrataciones.gov.py/api/convocatorias/1f1603c2-9674-6bf8-9b6e-0596221c0dbd/files/b7fc3aa5-87a4-48d0-a9f2-1643bba9c77d/download",
+       "language": "es",
+       "documentTypeDetails": "CDP"
+      },
+      {
+       "id": "a5c2d18e-8702-42ba-ae34-c8a4ff7cfcd7",
+       "datePublished": "2026-07-15T12:55:12-04:00",
+       "title": "nota-reparo-firmada-6a57ad490f7bb.pdf",
+       "url": "https://www.contrataciones.gov.py/api/convocatorias/1f1603c2-9674-6bf8-9b6e-0596221c0dbd/files/a5c2d18e-8702-42ba-ae34-c8a4ff7cfcd7/download",
+       "language": "es",
+       "documentTypeDetails": "Nota de Contestación"
+      },
+      {
+       "id": "e49f8daf-231b-4841-b3f7-8f37c0766b3a",
+       "datePublished": "2026-06-18T09:06:10-04:00",
+       "title": "dictamen-justificativa-de-no-planificacion-6a33df269eed7.pdf",
+       "url": "https://www.contrataciones.gov.py/api/convocatorias/1f1603c2-9674-6bf8-9b6e-0596221c0dbd/files/e49f8daf-231b-4841-b3f7-8f37c0766b3a/download",
+       "language": "es",
+       "documentTypeDetails": "Dictamen Justificativo"
+      },
+      {
+       "id": "2890b29b-e146-4153-86df-6ddc1bfac440",
+       "datePublished": "2026-07-07T06:51:07-04:00",
+       "title": "dictamen-de-estimacion-de-costo-6a45118628cf2.pdf",
+       "url": "https://www.contrataciones.gov.py/api/convocatorias/1f1603c2-9674-6bf8-9b6e-0596221c0dbd/files/2890b29b-e146-4153-86df-6ddc1bfac440/download",
+       "language": "es",
+       "documentTypeDetails": "Antecedentes de la Estimación de Costos"
+      },
+      {
+       "id": "/T6Ox7OpbWY=",
+       "datePublished": "2026-07-16T12:36:00-04:00",
+       "title": "Pliego para la Adquisición de Bienes y/o Servicios - CONVENCIONAL - Ley Nº 7021/22. 490182 Version 1",
+       "url": "https://www.contrataciones.gov.py/documentos/download/pliego/1f1603c2-9674-6bf8-9b6e-0596221c0dbd/1",
+       "language": "es",
+       "documentType": "biddingDocuments",
+       "documentTypeDetails": "Pliego Electrónico de bases y Condiciones",
+       "format": "application/pdf"
+      },
+      {
+       "id": "dix2iRRDbik=",
+       "title": "URL de la Convocatoria",
+       "url": "https://www.contrataciones.gov.py/licitaciones/convocatoria/1f1603c2-9674-6bf8-9b6e-0596221c0dbd.html",
+       "language": "es",
+       "documentType": "tenderNotice",
+       "format": "text/html"
+      },
+      {
+       "id": "c25f2c12-2dc9-4a2e-9936-6d89c15caea7",
+       "datePublished": "2026-06-18T09:06:10-04:00",
+       "title": "resolucion-de-aprobacion-1-6a33d16397c92.pdf",
+       "url": "https://www.contrataciones.gov.py/api/convocatorias/1f1603c2-9674-6bf8-9b6e-0596221c0dbd/files/c25f2c12-2dc9-4a2e-9936-6d89c15caea7/download",
+       "language": "es",
+       "documentTypeDetails": "Aprobación PBC"
+      },
+      {
+       "id": "bc71f02e-bb3f-4669-9627-c05398b1c2ee",
+       "datePublished": "2026-06-18T09:06:10-04:00",
+       "title": "dictamen-de-eett-1-6a33d19a41423.pdf",
+       "url": "https://www.contrataciones.gov.py/api/convocatorias/1f1603c2-9674-6bf8-9b6e-0596221c0dbd/files/bc71f02e-bb3f-4669-9627-c05398b1c2ee/download",
+       "language": "es",
+       "documentTypeDetails": "Dictamen Técnico EETT"
+      },
+      {
+       "id": "99d4510a-1b55-4692-aa5b-90dd5d4286f6",
+       "datePublished": "2026-07-28T08:44:38-04:00",
+       "title": "acta-de-apertura-id-490182-6964493708723327-6a6896254dbd8.pdf",
+       "url": "https://www.contrataciones.gov.py/api/convocatorias/1f1603c2-9674-6bf8-9b6e-0596221c0dbd/files/99d4510a-1b55-4692-aa5b-90dd5d4286f6/download",
+       "language": "es",
+       "documentTypeDetails": "Acta de Apertura"
+      },
+      {
+       "id": "OVuqKadnl1Qqrrlahl7xCg==",
+       "datePublished": "2026-07-16T12:36:00-04:00",
+       "title": "Pliego para la Adquisición de Bienes y/o Servicios - CONVENCIONAL - Ley Nº 7021/22. 490182 Version 1",
+       "url": "https://www.contrataciones.gov.py/documentos/download/pliego/1f1603c2-9674-6bf8-9b6e-0596221c0dbd/1/json",
+       "language": "es",
+       "documentType": "biddingDocuments",
+       "documentTypeDetails": "Pliego Electrónico de bases y Condiciones",
+       "format": "application/json"
+      }
+     ],
+     "numberOfTenderers": 2
+    },
+    "language": "es",
+    "ocid": "ocds-03ad3f-490182-1",
+    "date": "2026-08-20T13:52:52-04:00",
+    "initiationType": "tender",
+    "buyer": {
+     "id": "DNCP-SICP-CODE-304",
+     "name": "Ministerio de Defensa Nacional (MDN)"
+    },
+    "sources": [
+     {
+      "id": "dncp-sicp",
+      "name": "Sistema de Información de las Contrataciones Públicas - DNCP",
+      "url": "https://www.contrataciones.gov.py/"
+     }
+    ],
+    "contracts": [
+     {
+      "id": "MN-12005-26-269040",
+      "implementation": {
+       "financialProgress": {
+        "breakdown": [
+         {
+          "id": "2026/12/5/1/1/0/56/1/99/551/10/MN-12005-26-269040",
+          "period": {
+           "startDate": "2026-01-01T00:00:00Z",
+           "endDate": "2026-12-31T00:00:00Z"
+          },
+          "measures": {
+           "monto_a_utilizar": 526862525
+          },
+          "classifications": {
+           "anio": "2026",
+           "nivel": "12",
+           "entidad": "5",
+           "tipo_programa": "1",
+           "programa": "1",
+           "sub_programa": "0",
+           "proyecto": "56",
+           "financiador": "1",
+           "departamento": "99",
+           "objeto_gasto": "551",
+           "fuente_financiamiento": "10",
+           "cdp": "1403"
+          },
+          "financialCode": "MN-12005-26-269040"
+         }
+        ]
+       }
+      },
+      "awardID": "1f190ff6-9330-6bb6-a5bc-0d49b3960690",
+      "status": "active",
+      "statusDetails": "publicado",
+      "period": {
+       "startDate": "2026-08-14T00:00:00-04:00"
+      },
+      "value": {
+       "amount": 405990000,
+       "currency": "PYG"
+      },
+      "documents": [
+       {
+        "id": "1f19a68d-1410-6e5c-9c52-75b0b8d63f3c",
+        "datePublished": "2026-08-17T15:24:00-04:00",
+        "title": "cdp-6a8351c04307d.pdf",
+        "url": "https://www.contrataciones.gov.py/api/proveedor-adjudicado/1f190ff6-9330-6bb6-a5bc-0d49b3960690/files/2ca35551-2be1-4b9c-90b5-851a0c2bdd4e/download",
+        "language": "es",
+        "documentTypeDetails": "CDP"
+       },
+       {
+        "id": "1f19a68c-b2fc-6076-88bc-f3e5aa15ed48",
+        "datePublished": "2026-08-17T15:23:50-04:00",
+        "title": "declaracion-jurada-6a8351b61465e.pdf",
+        "url": "https://www.contrataciones.gov.py/api/proveedor-adjudicado/1f190ff6-9330-6bb6-a5bc-0d49b3960690/files/c260f533-5018-4a2c-810d-8a0bce21aa85/download",
+        "language": "es",
+        "documentTypeDetails": "Nota de Contestación"
+       },
+       {
+        "id": "1f19a68e-0134-612a-97b5-efbcaf75f710",
+        "datePublished": "2026-08-17T15:24:25-04:00",
+        "title": "resolucion-administrador-de-contrato-6a8351d91fec5.pdf",
+        "url": "https://www.contrataciones.gov.py/api/proveedor-adjudicado/1f190ff6-9330-6bb6-a5bc-0d49b3960690/files/57867f15-0835-4e17-bf46-a26ec48c97b0/download",
+        "language": "es",
+        "documentTypeDetails": "Justificación"
+       },
+       {
+        "id": "1f19a68c-4efa-6a32-9ba8-43b15b2ce817",
+        "datePublished": "2026-08-17T15:23:39-04:00",
+        "title": "contrato-39-gsm-servicios-6a8351ab8fc72.pdf",
+        "url": "https://www.contrataciones.gov.py/api/proveedor-adjudicado/1f190ff6-9330-6bb6-a5bc-0d49b3960690/files/632928cc-eec0-40be-b988-8fb3ec8d8af2/download",
+        "language": "es",
+        "documentType": "contractSigned",
+        "documentTypeDetails": "Contrato"
+       },
+       {
+        "id": "1f19a68d-9376-6ad4-b8a3-3ff9beeb4d0c",
+        "datePublished": "2026-08-17T15:24:13-04:00",
+        "title": "nota-comunicacion-6a8351cd98d23.pdf",
+        "url": "https://www.contrataciones.gov.py/api/proveedor-adjudicado/1f190ff6-9330-6bb6-a5bc-0d49b3960690/files/a0cbf4fa-b5fe-4250-a47b-74ba97cb18b9/download",
+        "language": "es",
+        "documentTypeDetails": "Nota de Comunicación"
+       }
+      ]
+     },
+     {
+      "id": "MN-12005-26-269039",
+      "implementation": {
+       "financialProgress": {
+        "breakdown": [
+         {
+          "id": "2026/12/5/1/1/0/56/1/99/551/10/MN-12005-26-269039",
+          "period": {
+           "startDate": "2026-01-01T00:00:00Z",
+           "endDate": "2026-12-31T00:00:00Z"
+          },
+          "measures": {
+           "monto_a_utilizar": 526862525
+          },
+          "classifications": {
+           "anio": "2026",
+           "nivel": "12",
+           "entidad": "5",
+           "tipo_programa": "1",
+           "programa": "1",
+           "sub_programa": "0",
+           "proyecto": "56",
+           "financiador": "1",
+           "departamento": "99",
+           "objeto_gasto": "551",
+           "fuente_financiamiento": "10",
+           "cdp": "1403"
+          },
+          "financialCode": "MN-12005-26-269039"
+         }
+        ]
+       }
+      },
+      "awardID": "1f190ff3-8db8-6f4c-9e45-6d9aa117fc97",
+      "status": "active",
+      "statusDetails": "publicado",
+      "period": {
+       "startDate": "2026-08-14T00:00:00-04:00"
+      },
+      "value": {
+       "amount": 99485000,
+       "currency": "PYG"
+      },
+      "documents": [
+       {
+        "id": "1f19a68a-4104-6a92-a7e4-83409380c75b",
+        "datePublished": "2026-08-17T15:22:44-04:00",
+        "title": "nota-comunicacion-6a8351746e8e1.pdf",
+        "url": "https://www.contrataciones.gov.py/api/proveedor-adjudicado/1f190ff3-8db8-6f4c-9e45-6d9aa117fc97/files/e55a2362-45a7-4f97-bae2-4f9a2bfd6225/download",
+        "language": "es",
+        "documentTypeDetails": "Nota de Comunicación"
+       },
+       {
+        "id": "1f19a68a-95fa-69b6-84c1-f92eeb79eea5",
+        "datePublished": "2026-08-17T15:22:53-04:00",
+        "title": "resolucion-administrador-de-contrato-6a83517d5691d.pdf",
+        "url": "https://www.contrataciones.gov.py/api/proveedor-adjudicado/1f190ff3-8db8-6f4c-9e45-6d9aa117fc97/files/2f46e017-4746-4bc9-8ef9-0b86a839d62f/download",
+        "language": "es",
+        "documentTypeDetails": "Justificación"
+       },
+       {
+        "id": "1f19a689-1b4a-662c-9790-8dbf9fa3619a",
+        "datePublished": "2026-08-17T15:22:13-04:00",
+        "title": "contrato-40-guillermina-lezcano-6a8351559e92d.pdf",
+        "url": "https://www.contrataciones.gov.py/api/proveedor-adjudicado/1f190ff3-8db8-6f4c-9e45-6d9aa117fc97/files/f5b3523e-6c9c-478c-b77b-88ba0ef829fc/download",
+        "language": "es",
+        "documentType": "contractSigned",
+        "documentTypeDetails": "Contrato"
+       },
+       {
+        "id": "1f19a689-7bae-6220-8375-87981e1000d9",
+        "datePublished": "2026-08-17T15:22:23-04:00",
+        "title": "declaracion-jurada-6a83515fbabcb.pdf",
+        "url": "https://www.contrataciones.gov.py/api/proveedor-adjudicado/1f190ff3-8db8-6f4c-9e45-6d9aa117fc97/files/b3ca3c6c-3406-4807-8dce-284e5b4a9d20/download",
+        "language": "es",
+        "documentTypeDetails": "Nota de Contestación"
+       },
+       {
+        "id": "1f19a689-db58-63e2-a143-a3101ac85ee0",
+        "datePublished": "2026-08-17T15:22:33-04:00",
+        "title": "cdp-6a835169b9821.pdf",
+        "url": "https://www.contrataciones.gov.py/api/proveedor-adjudicado/1f190ff3-8db8-6f4c-9e45-6d9aa117fc97/files/d8bebc75-4b84-4e19-95b7-d568a85a4add/download",
+        "language": "es",
+        "documentTypeDetails": "CDP"
+       }
+      ]
+     }
+    ],
+    "tag": [
+     "compiled"
+    ]
+   },
+   "expect": {
+    "stage": "contract_awarded",
+    "response_deadline": "2026-07-28T08:00:00",
+    "external_ref": "ocds-03ad3f-490182-1"
+   },
+   "why": "'Adjudicada' (feminine) was never matched -> 45 awarded tenders stored as open"
+  },
+  {
+   "id": "paraguay_484237",
+   "source": "paraguay",
+   "raw": {
+    "id": "1f126af4-a0b8-6ab6-b62c-c50d4f0e092d-1779446877",
+    "awards": [
+     {
+      "id": "1f1430d2-8a2e-6e6c-a6e9-2d7efb91568c",
+      "status": "active",
+      "statusDetails": "publicado",
+      "date": "2026-04-28T00:00:00-04:00",
+      "value": {
+       "amount": 47861116,
+       "currency": "PYG"
+      },
+      "suppliers": [
+       {
+        "name": "GUILLERMINA LEZCANO LEZCANO",
+        "id": "PY-RUC-1175492-3"
+       }
+      ],
+      "documents": [
+       {
+        "id": "1f1430ce-dcc1-61e2-ab2b-c31de2e18760",
+        "datePublished": "2026-04-28T11:17:03-04:00",
+        "title": "informe-de-evaluacion-n-12-69f0c15f4218f.pdf",
+        "url": "https://www.contrataciones.gov.py/api/resultado/1f1430c6-5e97-659e-b54f-930599b5b4b3/files/cb227515-91b0-4793-936f-83c9f7d8292d/download",
+        "language": "es",
+        "documentTypeDetails": "Informe de Evaluación"
+       },
+       {
+        "id": "dix2iRRDbik=",
+        "title": "URL de la Adjudicación",
+        "url": "https://www.contrataciones.gov.py/licitaciones/adjudicacion/1f1430c6-5e97-659e-b54f-930599b5b4b3/resumen-adjudicacion.html",
+        "language": "es",
+        "documentType": "awardNotice",
+        "format": "text/html"
+       },
+       {
+        "id": "1f1430ce-6027-6d0c-b66f-71460230d827",
+        "datePublished": "2026-04-28T11:16:50-04:00",
+        "title": "cco-69f0c152344db.pdf",
+        "url": "https://www.contrataciones.gov.py/api/resultado/1f1430c6-5e97-659e-b54f-930599b5b4b3/files/78c16bbb-9364-4a73-b66f-9d86f0dc1b77/download",
+        "language": "es",
+        "documentTypeDetails": "Cuadro Comparativo de Ofertas"
+       },
+       {
+        "id": "1f1430cf-453a-664c-8953-af602774951c",
+        "datePublished": "2026-04-28T11:17:14-04:00",
+        "title": "nota-comunicacion-1-etapa-69f0c16a3c45d.pdf",
+        "url": "https://www.contrataciones.gov.py/api/resultado/1f1430c6-5e97-659e-b54f-930599b5b4b3/files/2454ebf3-b878-42c2-8853-2d8904fee7fe/download",
+        "language": "es",
+        "documentTypeDetails": "Nota de Contestación"
+       },
+       {
+        "id": "1f1430cd-722b-6bc6-90ad-737921e83bf7",
+        "datePublished": "2026-04-28T11:16:25-04:00",
+        "title": "resolucion-n-46-2026-69f0c1394169c.pdf",
+        "url": "https://www.contrataciones.gov.py/api/resultado/1f1430c6-5e97-659e-b54f-930599b5b4b3/files/45206789-297f-478c-b639-66d87f23bf5f/download",
+        "language": "es",
+        "documentType": "awardNotice",
+        "documentTypeDetails": "Resolución de Adjudicación"
+       }
+      ],
+      "items": [
+       {
+        "id": "1f126b00-33d8-6886-9d69-4133ea97f420",
+        "description": "Juego uniforme militar (Traje Tradicional del 70)",
+        "classification": {
+         "scheme": "catalogoNivel5DNCP",
+         "id": "53102701-009",
+         "description": "Juego uniforme militar",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/53102701-009"
+        },
+        "additionalClassifications": [
+         {
+          "scheme": "UNSPSC",
+          "id": "53102701",
+          "description": "Uniformes Militares",
+          "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/53102701"
+         }
+        ],
+        "quantity": 1,
+        "unit": {
+         "name": "Unidad",
+         "id": "UNI",
+         "value": {
+          "amount": 1400000,
+          "currency": "PYG"
+         }
+        },
+        "relatedLot": "1f126afc-25c5-62e8-b3d9-f3bd4d40aad1",
+        "attributes": [
+         {
+          "value": "PARAGUAY",
+          "name": "Procedencia",
+          "id": "1"
+         },
+         {
+          "value": "COMERCIAL CELESTIAL",
+          "name": "Fabricante",
+          "id": "3"
+         },
+         {
+          "value": "CELESTIAL",
+          "name": "Marca",
+          "id": "4"
+         },
+         {
+          "name": "Orden",
+          "value": "1",
+          "id": "7"
+         },
+         {
+          "name": "nro_certificado_origen_nacional",
+          "value": "N/A",
+          "id": "317"
+         }
+        ]
+       },
+       {
+        "id": "1f126b02-c002-6986-83c8-f17d9895673c",
+        "description": "Juego uniforme militar (traje camuflado, quepis, chapeu y funda)",
+        "classification": {
+         "scheme": "catalogoNivel5DNCP",
+         "id": "53102701-009",
+         "description": "Juego uniforme militar",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/53102701-009"
+        },
+        "additionalClassifications": [
+         {
+          "scheme": "UNSPSC",
+          "id": "53102701",
+          "description": "Uniformes Militares",
+          "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/53102701"
+         }
+        ],
+        "quantity": 1,
+        "unit": {
+         "name": "Unidad",
+         "id": "UNI",
+         "value": {
+          "amount": 495000,
+          "currency": "PYG"
+         }
+        },
+        "relatedLot": "1f126afc-25c5-62e8-b3d9-f3bd4d40aad1",
+        "attributes": [
+         {
+          "value": "PARAGUAY",
+          "name": "Procedencia",
+          "id": "1"
+         },
+         {
+          "value": "COMERCIAL CELESTIAL",
+          "name": "Fabricante",
+          "id": "3"
+         },
+         {
+          "value": "CELESTIAL",
+          "name": "Marca",
+          "id": "4"
+         },
+         {
+          "name": "Orden",
+          "value": "2",
+          "id": "7"
+         },
+         {
+          "name": "nro_certificado_origen_nacional",
+          "value": "N/A",
+          "id": "317"
+         }
+        ]
+       },
+       {
+        "id": "1f126b0d-6d48-67da-87dc-9364f18ed074",
+        "description": "Colchon de espuma",
+        "classification": {
+         "scheme": "catalogoNivel5DNCP",
+         "id": "49121502-001",
+         "description": "Colchon de espuma",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/49121502-001"
+        },
+        "additionalClassifications": [
+         {
+          "scheme": "UNSPSC",
+          "id": "49121502",
+          "description": "Colchones de espuma",
+          "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/49121502"
+         }
+        ],
+        "quantity": 1,
+        "unit": {
+         "name": "Unidad",
+         "id": "UNI",
+         "value": {
+          "amount": 604000,
+          "currency": "PYG"
+         }
+        },
+        "relatedLot": "1f126b0a-7130-67b0-bcab-f1198035ab17",
+        "attributes": [
+         {
+          "value": "PARAGUAY",
+          "name": "Procedencia",
+          "id": "1"
+         },
+         {
+          "value": "COMERCIAL CELESTIAL",
+          "name": "Fabricante",
+          "id": "3"
+         },
+         {
+          "value": "CELESTIAL",
+          "name": "Marca",
+          "id": "4"
+         },
+         {
+          "name": "Orden",
+          "value": "1",
+          "id": "7"
+         },
+         {
+          "name": "nro_certificado_origen_nacional",
+          "value": "N/A",
+          "id": "317"
+         }
+        ]
+       },
+       {
+        "id": "1f126b10-cc9f-6438-bb94-2583c79f4f53",
+        "description": "Sabana de enfermeria",
+        "classification": {
+         "scheme": "catalogoNivel5DNCP",
+         "id": "42132105-001",
+         "description": "Sabana de enfermeria",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/42132105-001"
+        },
+        "additionalClassifications": [
+         {
+          "scheme": "UNSPSC",
+          "id": "42132105",
+          "description": "Sabanas de hospital",
+          "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/42132105"
+         }
+        ],
+        "quantity": 1,
+        "unit": {
+         "name": "Unidad",
+         "id": "UNI",
+         "value": {
+          "amount": 104000,
+          "currency": "PYG"
+         }
+        },
+        "relatedLot": "1f126b0a-7130-67b0-bcab-f1198035ab17",
+        "attributes": [
+         {
+          "value": "PARAGUAY",
+          "name": "Procedencia",
+          "id": "1"
+         },
+         {
+          "value": "COMERCIAL CELESTIAL",
+          "name": "Fabricante",
+          "id": "3"
+         },
+         {
+          "value": "CELESTIAL",
+          "name": "Marca",
+          "id": "4"
+         },
+         {
+          "name": "Orden",
+          "value": "2",
+          "id": "7"
+         },
+         {
+          "name": "nro_certificado_origen_nacional",
+          "value": "N/A",
+          "id": "317"
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "parties": [
+     {
+      "id": "DNCP-SICP-CODE-304",
+      "name": "Ministerio de Defensa Nacional (MDN)",
+      "identifier": {
+       "id": "304",
+       "legalName": "Ministerio de Defensa Nacional (MDN)",
+       "scheme": "DNCP-SICP-CODE"
+      },
+      "additionalIdentifiers": [
+       {
+        "id": "2026.12.5",
+        "legalName": "Ministerio de Defensa Nacional",
+        "scheme": "PY-PGN"
+       }
+      ],
+      "roles": [
+       "buyer"
+      ]
+     },
+     {
+      "id": "DNCP-SICP-CODE-1025",
+      "name": "Comando del Ejercito Uoc 2 / Ministerio de Defensa Nacional",
+      "identifier": {
+       "scheme": "DNCP-SICP-CODE",
+       "id": "1025",
+       "legalName": "Comando del Ejercito Uoc 2 / Ministerio de Defensa Nacional"
+      },
+      "contactPoint": {
+       "email": "uocejercito@hotmail.com",
+       "name": "CAP INT RICHARD GABRIEL BERNAL ARMOA",
+       "telephone": "021-296265"
+      },
+      "roles": [
+       "procuringEntity"
+      ],
+      "details": {
+       "level": "Poder Ejecutivo",
+       "entityType": "Organismos de la Administración Central",
+       "type": "Unidad Contratación"
+      },
+      "memberOf": [
+       {
+        "id": "DNCP-SICP-CODE-304",
+        "name": "Ministerio de Defensa Nacional (MDN)"
+       }
+      ]
+     },
+     {
+      "name": "GUILLERMINA LEZCANO LEZCANO",
+      "id": "PY-RUC-1175492-3",
+      "identifier": {
+       "id": "1175492-3",
+       "legalName": "GUILLERMINA LEZCANO LEZCANO",
+       "scheme": "PY-RUC"
+      },
+      "roles": [
+       "tenderer",
+       "supplier"
+      ],
+      "contactPoint": {
+       "name": "GUILLERMINA LEZCANO LEZCANO",
+       "email": "comercialcelestial@gmail.com",
+       "telephone": "0981 471 971"
+      },
+      "address": {
+       "countryName": "Paraguay",
+       "locality": "ASUNCION",
+       "region": "Central",
+       "streetAddress": "CELSA SPERATTI ESQ/ARTIGAS"
+      },
+      "details": {
+       "scale": "sme",
+       "legalEntityTypeDetail": "Persona Física - Servicios Personales",
+       "activityTypes": [
+        "goods",
+        "services"
+       ]
+      }
+     }
+    ],
+    "tender": {
+     "id": "1f126af4-a0b8-6ab6-b62c-c50d4f0e092d",
+     "title": "Adquisición de Vestuarios (Uniforme Militar y Colchones)",
+     "status": "complete",
+     "awardCriteria": "priceOnly",
+     "awardCriteriaDetails": "Por Lote",
+     "submissionMethod": [
+      "inPerson"
+     ],
+     "bidOpening": {
+      "date": "2026-04-13T10:30:00-04:00",
+      "address": {
+       "streetAddress": "Autopista Ñu Guasu y Dr Semidei, Cuartel General del Comando del Ejercito - Edificio del Centro Financiero Nº 2 - Salon de actos planta baja"
+      }
+     },
+     "submissionMethodDetails": "Lugar entrega ofertas: Autopista Ñu Guasu y Dr Semidei, Cuartel General del Comando del Ejercito - Edificio del Centro Financiero Nº 2, mesa entrada - Campo Grande Asuncion",
+     "eligibilityCriteria": "Restricciones: Ninguna",
+     "statusDetails": "Adjudicada",
+     "enquiriesAddress": {
+      "streetAddress": "Consultas Virtuales a traves del portal"
+     },
+     "clarificationMeetings": [
+      {
+       "address": {
+        "streetAddress": "N/A"
+       },
+       "id": "1"
+      }
+     ],
+     "mainProcurementCategoryDetails": "Bienes - Ropas, Maletas y Productos de Aseo Personal",
+     "hasEnquiries": false,
+     "value": {
+      "amount": 47861116,
+      "currency": "PYG"
+     },
+     "datePublished": "2026-03-31T09:44:35-04:00",
+     "tenderPeriod": {
+      "startDate": "2026-03-31T09:44:35-04:00",
+      "endDate": "2026-04-13T10:15:00-04:00",
+      "durationInDays": 13
+     },
+     "awardPeriod": {
+      "startDate": "2026-04-13T10:30:00-04:00"
+     },
+     "contractPeriod": {
+      "maxExtentDate": "2026-12-31T00:00:00-04:00"
+     },
+     "enquiryPeriod": {
+      "endDate": "2026-04-08T12:00:00-04:00",
+      "startDate": "2026-03-31T09:44:35-04:00",
+      "durationInDays": 8
+     },
+     "mainProcurementCategory": "services",
+     "additionalProcurementCategories": [
+      "services"
+     ],
+     "procurementMethod": "open",
+     "procurementMethodDetails": "Menor cuantía nacional",
+     "procuringEntity": {
+      "id": "DNCP-SICP-CODE-1025",
+      "name": "Comando del Ejercito Uoc 2 / Ministerio de Defensa Nacional"
+     },
+     "criteria": [
+      {
+       "id": "1",
+       "title": "Garantía de Mantenimiento de Ofertas",
+       "description": "Los oferentes, proveedores o contratistas deberán garantizar la seriedad de sus ofertas, mediante la garantía de mantenimiento de la oferta",
+       "source": "tenderer",
+       "requirementGroups": [
+        {
+         "id": "1-1",
+         "description": "La garantía debe ser de un cierto porcentaje, periodo y tipo",
+         "requirements": [
+          {
+           "id": "1-1-1",
+           "title": "Porcentaje de la garantia",
+           "expectedValue": "5"
+          },
+          {
+           "id": "1-1-2",
+           "title": "Validez de la garantia en días",
+           "expectedValue": "120"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "lots": [
+      {
+       "id": "1f126afc-25c5-62e8-b3d9-f3bd4d40aad1",
+       "title": "1 - 1 - Ejercito-Juego de Uniforme Militar",
+       "status": "active",
+       "statusDetails": "activo",
+       "value": {
+        "amount": 42743200,
+        "currency": "PYG"
+       },
+       "openContractType": "monto",
+       "minValue": {
+        "amount": 21000000,
+        "currency": "PYG"
+       },
+       "simultaneousSupply": false,
+       "attributes": [
+        {
+         "name": "Orden",
+         "value": "1",
+         "id": "1"
+        }
+       ]
+      },
+      {
+       "id": "1f126b0a-7130-67b0-bcab-f1198035ab17",
+       "title": "2 - 1 - Colchon y Sabana",
+       "status": "active",
+       "statusDetails": "activo",
+       "value": {
+        "amount": 5117916,
+        "currency": "PYG"
+       },
+       "openContractType": "monto",
+       "minValue": {
+        "amount": 2500000,
+        "currency": "PYG"
+       },
+       "simultaneousSupply": false,
+       "attributes": [
+        {
+         "name": "Orden",
+         "value": "1",
+         "id": "2"
+        }
+       ]
+      }
+     ],
+     "items": [
+      {
+       "id": "1f126b02-c002-6986-83c8-f17d9895673c",
+       "description": "Juego uniforme militar (traje camuflado, quepis, chapeu y funda)",
+       "classification": {
+        "scheme": "catalogoNivel5DNCP",
+        "id": "53102701-009",
+        "description": "Juego uniforme militar",
+        "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/53102701-009"
+       },
+       "additionalClassifications": [
+        {
+         "scheme": "UNSPSC",
+         "id": "53102701",
+         "description": "Uniformes Militares",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/53102701"
+        }
+       ],
+       "unit": {
+        "name": "Unidad",
+        "id": "UNI",
+        "value": {
+         "amount": 495802,
+         "currency": "PYG"
+        }
+       },
+       "relatedLot": "1f126afc-25c5-62e8-b3d9-f3bd4d40aad1",
+       "attributes": [
+        {
+         "name": "Presentacion",
+         "value": "KIT - JUEGO",
+         "id": "1"
+        },
+        {
+         "name": "Orden",
+         "value": "2",
+         "id": "2"
+        }
+       ]
+      },
+      {
+       "id": "1f126b00-33d8-6886-9d69-4133ea97f420",
+       "description": "Juego uniforme militar (Traje Tradicional del 70)",
+       "classification": {
+        "scheme": "catalogoNivel5DNCP",
+        "id": "53102701-009",
+        "description": "Juego uniforme militar",
+        "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/53102701-009"
+       },
+       "additionalClassifications": [
+        {
+         "scheme": "UNSPSC",
+         "id": "53102701",
+         "description": "Uniformes Militares",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/53102701"
+        }
+       ],
+       "unit": {
+        "name": "Unidad",
+        "id": "UNI",
+        "value": {
+         "amount": 1400000,
+         "currency": "PYG"
+        }
+       },
+       "relatedLot": "1f126afc-25c5-62e8-b3d9-f3bd4d40aad1",
+       "attributes": [
+        {
+         "name": "Presentacion",
+         "value": "KIT - JUEGO",
+         "id": "1"
+        },
+        {
+         "name": "Orden",
+         "value": "1",
+         "id": "2"
+        }
+       ]
+      },
+      {
+       "id": "1f126b0d-6d48-67da-87dc-9364f18ed074",
+       "description": "Colchon de espuma",
+       "classification": {
+        "scheme": "catalogoNivel5DNCP",
+        "id": "49121502-001",
+        "description": "Colchon de espuma",
+        "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/49121502-001"
+       },
+       "additionalClassifications": [
+        {
+         "scheme": "UNSPSC",
+         "id": "49121502",
+         "description": "Colchones de espuma",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/49121502"
+        }
+       ],
+       "unit": {
+        "name": "Unidad",
+        "id": "UNI",
+        "value": {
+         "amount": 604333,
+         "currency": "PYG"
+        }
+       },
+       "relatedLot": "1f126b0a-7130-67b0-bcab-f1198035ab17",
+       "attributes": [
+        {
+         "name": "Presentacion",
+         "value": "UNIDAD",
+         "id": "1"
+        },
+        {
+         "name": "Orden",
+         "value": "1",
+         "id": "2"
+        }
+       ]
+      },
+      {
+       "id": "1f126b10-cc9f-6438-bb94-2583c79f4f53",
+       "description": "Sabana de enfermeria",
+       "classification": {
+        "scheme": "catalogoNivel5DNCP",
+        "id": "42132105-001",
+        "description": "Sabana de enfermeria",
+        "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n5/42132105-001"
+       },
+       "additionalClassifications": [
+        {
+         "scheme": "UNSPSC",
+         "id": "42132105",
+         "description": "Sabanas de hospital",
+         "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/42132105"
+        }
+       ],
+       "unit": {
+        "name": "Unidad",
+        "id": "UNI",
+        "value": {
+         "amount": 104333,
+         "currency": "PYG"
+        }
+       },
+       "relatedLot": "1f126b0a-7130-67b0-bcab-f1198035ab17",
+       "attributes": [
+        {
+         "name": "Presentacion",
+         "value": "UNIDAD",
+         "id": "1"
+        },
+        {
+         "name": "Orden",
+         "value": "2",
+         "id": "2"
+        }
+       ]
+      }
+     ],
+     "tenderers": [
+      {
+       "name": "GUILLERMINA LEZCANO LEZCANO",
+       "id": "PY-RUC-1175492-3"
+      }
+     ],
+     "documents": [
+      {
+       "id": "3a66c374-53c9-4a99-b4f7-98b8f42eec85",
+       "datePublished": "2026-04-13T15:11:14-04:00",
+       "title": "acta-de-apertura-1341867897181964-69dd31c1e5261.pdf",
+       "url": "https://www.contrataciones.gov.py/api/convocatorias/1f126af4-a0b8-6ab6-b62c-c50d4f0e092d/files/3a66c374-53c9-4a99-b4f7-98b8f42eec85/download",
+       "language": "es",
+       "documentTypeDetails": "Acta de Apertura"
+      },
+      {
+       "id": "2635690a-e71b-476a-9e4b-5b3d3010dc09",
+       "datePublished": "2026-03-23T14:43:23-04:00",
+       "title": "antecedente-2-69c179a6ec790.pdf",
+       "url": "https://www.contrataciones.gov.py/api/convocatorias/1f126af4-a0b8-6ab6-b62c-c50d4f0e092d/files/2635690a-e71b-476a-9e4b-5b3d3010dc09/download",
+       "language": "es",
+       "documentTypeDetails": "Antecedentes de la Estimación de Costos"
+      },
+      {
+       "id": "5ed33538-2077-4ec6-a3aa-4f3e277589ee",
+       "datePublished": "2026-03-23T14:43:24-04:00",
+       "title": "resolucion-aproba-pbc-69c1796bb034a.pdf",
+       "url": "https://www.contrataciones.gov.py/api/convocatorias/1f126af4-a0b8-6ab6-b62c-c50d4f0e092d/files/5ed33538-2077-4ec6-a3aa-4f3e277589ee/download",
+       "language": "es",
+       "documentTypeDetails": "Aprobación PBC"
+      },
+      {
+       "id": "2a3151ce-9c8d-4a14-84b0-07edbb565247",
+       "datePublished": "2026-03-27T11:15:10-04:00",
+       "title": "nota-de-contestacion-01-69c6905268624.pdf",
+       "url": "https://www.contrataciones.gov.py/api/convocatorias/1f126af4-a0b8-6ab6-b62c-c50d4f0e092d/files/2a3151ce-9c8d-4a14-84b0-07edbb565247/download",
+       "language": "es",
+       "documentTypeDetails": "Nota de Contestación"
+      },
+      {
+       "id": "dix2iRRDbik=",
+       "title": "URL de la Convocatoria",
+       "url": "https://www.contrataciones.gov.py/licitaciones/convocatoria/1f126af4-a0b8-6ab6-b62c-c50d4f0e092d.html",
+       "language": "es",
+       "documentType": "tenderNotice",
+       "format": "text/html"
+      },
+      {
+       "id": "1d3e11f6-0e5d-4227-a4ad-045310bf9147",
+       "datePublished": "2026-03-23T14:43:24-04:00",
+       "title": "dictamen-tecnico-69c1797baff59.pdf",
+       "url": "https://www.contrataciones.gov.py/api/convocatorias/1f126af4-a0b8-6ab6-b62c-c50d4f0e092d/files/1d3e11f6-0e5d-4227-a4ad-045310bf9147/download",
+       "language": "es",
+       "documentTypeDetails": "Dictamen técnico"
+      },
+      {
+       "id": "1c9700fa-b73a-44b9-9bf8-4e9f9d261dd7",
+       "datePublished": "2026-03-23T14:43:24-04:00",
+       "title": "cdp-2-69c17945cd0ab.pdf",
+       "url": "https://www.contrataciones.gov.py/api/convocatorias/1f126af4-a0b8-6ab6-b62c-c50d4f0e092d/files/1c9700fa-b73a-44b9-9bf8-4e9f9d261dd7/download",
+       "language": "es",
+       "documentTypeDetails": "CDP"
+      },
+      {
+       "id": "7f019540-38c7-452f-ac3a-5c5a2485c27b",
+       "datePublished": "2026-03-23T14:43:23-04:00",
+       "title": "precio-referencial-promedio-de-calculos-69c17987f3ea0.pdf",
+       "url": "https://www.contrataciones.gov.py/api/convocatorias/1f126af4-a0b8-6ab6-b62c-c50d4f0e092d/files/7f019540-38c7-452f-ac3a-5c5a2485c27b/download",
+       "language": "es",
+       "documentTypeDetails": "Dictamen técnico"
+      },
+      {
+       "id": "QOOMfV9YE84=",
+       "datePublished": "2026-03-31T09:44:34-04:00",
+       "title": "Pliego para la Adquisición de Bienes y/o Servicios - CONVENCIONAL - Ley Nº 7021/22. 484237 Version 1",
+       "url": "https://www.contrataciones.gov.py/documentos/download/pliego/1f126af4-a0b8-6ab6-b62c-c50d4f0e092d/1",
+       "language": "es",
+       "documentType": "biddingDocuments",
+       "documentTypeDetails": "Pliego Electrónico de bases y Condiciones",
+       "format": "application/pdf"
+      },
+      {
+       "id": "G1w0rxZDhahjet8JinPfeQ==",
+       "datePublished": "2026-03-31T09:44:34-04:00",
+       "title": "Pliego para la Adquisición de Bienes y/o Servicios - CONVENCIONAL - Ley Nº 7021/22. 484237 Version 1",
+       "url": "https://www.contrataciones.gov.py/documentos/download/pliego/1f126af4-a0b8-6ab6-b62c-c50d4f0e092d/1/json",
+       "language": "es",
+       "documentType": "biddingDocuments",
+       "documentTypeDetails": "Pliego Electrónico de bases y Condiciones",
+       "format": "application/json"
+      },
+      {
+       "id": "730962cb-3dcd-4909-a945-eb768289a9ac",
+       "datePublished": "2026-03-23T14:43:23-04:00",
+       "title": "antecedentes-1-69c17997761b0.pdf",
+       "url": "https://www.contrataciones.gov.py/api/convocatorias/1f126af4-a0b8-6ab6-b62c-c50d4f0e092d/files/730962cb-3dcd-4909-a945-eb768289a9ac/download",
+       "language": "es",
+       "documentTypeDetails": "Antecedentes de la Estimación de Costos"
+      }
+     ],
+     "numberOfTenderers": 1
+    },
+    "language": "es",
+    "ocid": "ocds-03ad3f-484237-1",
+    "date": "2026-05-22T10:47:57-04:00",
+    "initiationType": "tender",
+    "buyer": {
+     "id": "DNCP-SICP-CODE-304",
+     "name": "Ministerio de Defensa Nacional (MDN)"
+    },
+    "sources": [
+     {
+      "id": "dncp-sicp",
+      "name": "Sistema de Información de las Contrataciones Públicas - DNCP",
+      "url": "https://www.contrataciones.gov.py/"
+     }
+    ],
+    "contracts": [
+     {
+      "id": "MN-12005-26-266058",
+      "implementation": {
+       "financialProgress": {
+        "breakdown": [
+         {
+          "id": "2026/12/5/1/1/0/19/1/99/323/10/MN-12005-26-266058",
+          "period": {
+           "startDate": "2026-01-01T00:00:00Z",
+           "endDate": "2026-12-31T00:00:00Z"
+          },
+          "measures": {
+           "monto_a_utilizar": 5117916
+          },
+          "classifications": {
+           "anio": "2026",
+           "nivel": "12",
+           "entidad": "5",
+           "tipo_programa": "1",
+           "programa": "1",
+           "sub_programa": "0",
+           "proyecto": "19",
+           "financiador": "1",
+           "departamento": "99",
+           "objeto_gasto": "323",
+           "fuente_financiamiento": "10",
+           "cdp": "557"
+          },
+          "financialCode": "MN-12005-26-266058"
+         },
+         {
+          "id": "2026/12/5/1/1/0/15/1/99/322/30/MN-12005-26-266058",
+          "period": {
+           "startDate": "2026-01-01T00:00:00Z",
+           "endDate": "2026-12-31T00:00:00Z"
+          },
+          "measures": {
+           "monto_a_utilizar": 42743200
+          },
+          "classifications": {
+           "anio": "2026",
+           "nivel": "12",
+           "entidad": "5",
+           "tipo_programa": "1",
+           "programa": "1",
+           "sub_programa": "0",
+           "proyecto": "15",
+           "financiador": "1",
+           "departamento": "99",
+           "objeto_gasto": "322",
+           "fuente_financiamiento": "30",
+           "cdp": "557"
+          },
+          "financialCode": "MN-12005-26-266058"
+         }
+        ]
+       }
+      },
+      "awardID": "1f1430d2-8a2e-6e6c-a6e9-2d7efb91568c",
+      "status": "active",
+      "statusDetails": "publicado",
+      "dateSigned": "2026-12-31T00:00:00-04:00",
+      "period": {
+       "startDate": "2026-05-19T00:00:00-04:00"
+      },
+      "value": {
+       "amount": 47861116,
+       "currency": "PYG"
+      },
+      "documents": [
+       {
+        "id": "1f153a54-5119-6fd2-8e9d-fd531595593a",
+        "datePublished": "2026-05-19T14:07:51-04:00",
+        "title": "cdp-6a0c98e7c4dbe.pdf",
+        "url": "https://www.contrataciones.gov.py/api/proveedor-adjudicado/1f1430d2-8a2e-6e6c-a6e9-2d7efb91568c/files/336f2964-0f88-4c98-a311-75d049ea6026/download",
+        "language": "es",
+        "documentTypeDetails": "CDP"
+       },
+       {
+        "id": "1f153a53-b3c3-6e4a-956f-fb9499ff7a7f",
+        "datePublished": "2026-05-19T14:07:35-04:00",
+        "title": "nota-contrato-n-36-6a0c98d74ab61.pdf",
+        "url": "https://www.contrataciones.gov.py/api/proveedor-adjudicado/1f1430d2-8a2e-6e6c-a6e9-2d7efb91568c/files/59c4bd1a-a671-4c2c-9417-5c400579d451/download",
+        "language": "es",
+        "documentTypeDetails": "Nota de Comunicación"
+       },
+       {
+        "id": "1f153a52-1415-6b92-b569-abb96a3c8662",
+        "datePublished": "2026-05-19T14:06:51-04:00",
+        "title": "resolucion-n-172-2025-6a0c98abb4089.pdf",
+        "url": "https://www.contrataciones.gov.py/api/proveedor-adjudicado/1f1430d2-8a2e-6e6c-a6e9-2d7efb91568c/files/90ebec6c-ef3b-43cd-b9d8-bc0b39fe3520/download",
+        "language": "es",
+        "documentTypeDetails": "Nota de Comunicación"
+       },
+       {
+        "id": "1f153a54-de5a-6a4a-afd9-99b4253f1346",
+        "datePublished": "2026-05-19T14:08:06-04:00",
+        "title": "contrato-n-36-comercial-celestial-6a0c98f6987dd.pdf",
+        "url": "https://www.contrataciones.gov.py/api/proveedor-adjudicado/1f1430d2-8a2e-6e6c-a6e9-2d7efb91568c/files/163125df-4400-4e42-ac53-6a7b350145be/download",
+        "language": "es",
+        "documentType": "contractSigned",
+        "documentTypeDetails": "Contrato"
+       }
+      ]
+     }
+    ],
+    "planning": {
+     "identifier": "484237",
+     "estimatedDate": "2026-04-30T00:00:00-04:00",
+     "budget": {
+      "description": "Adquisición de Vestuarios (Uniforme Militar)",
+      "amount": {
+       "currency": "PYG",
+       "amount": 44983200
+      },
+      "budgetBreakdown": [
+       {
+        "id": "2026/12/5/1/1/0/19/1/99/323/10-pHqy9i4q69I=",
+        "sourceParty": {
+         "id": "304",
+         "name": "Ministerio de Defensa Nacional"
+        },
+        "period": {
+         "startDate": "2026-01-01T00:00:00Z",
+         "endDate": "2026-12-31T00:00:00Z"
+        },
+        "measures": {
+         "monto_utilizado": 2240000,
+         "monto_a_utilizar": 2240000
+        },
+        "classifications": {
+         "anio": "2026",
+         "nivel": "12",
+         "entidad": "5",
+         "tipo_programa": "1",
+         "programa": "1",
+         "sub_programa": "0",
+         "proyecto": "19",
+         "financiador": "1",
+         "departamento": "99",
+         "objeto_gasto": "323",
+         "fuente_financiamiento": "10",
+         "cdp": "557"
+        }
+       },
+       {
+        "id": "2026/12/5/1/1/0/15/1/99/322/30-ULN74joRksY=",
+        "sourceParty": {
+         "id": "304",
+         "name": "Ministerio de Defensa Nacional"
+        },
+        "period": {
+         "startDate": "2026-01-01T00:00:00Z",
+         "endDate": "2026-12-31T00:00:00Z"
+        },
+        "measures": {
+         "monto_utilizado": 42743200,
+         "monto_a_utilizar": 42743200
+        },
+        "classifications": {
+         "anio": "2026",
+         "nivel": "12",
+         "entidad": "5",
+         "tipo_programa": "1",
+         "programa": "1",
+         "sub_programa": "0",
+         "proyecto": "15",
+         "financiador": "1",
+         "departamento": "99",
+         "objeto_gasto": "322",
+         "fuente_financiamiento": "30",
+         "cdp": "557"
+        }
+       }
+      ]
+     },
+     "items": [
+      {
+       "id": "1f12164c-c011-634c-9623-aba9f0d619dd",
+       "description": "Uniformes",
+       "classification": {
+        "scheme": "UNSPSC",
+        "id": "53102700",
+        "description": "Uniformes",
+        "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/53102700"
+       }
+      },
+      {
+       "id": "1f1239c4-31ce-6db4-92e2-c7cd673fc006",
+       "description": "Equipos para acampada y exterior",
+       "classification": {
+        "scheme": "UNSPSC",
+        "id": "49121500",
+        "description": "Equipos para acampada y exterior",
+        "uri": "https://www.contrataciones.gov.py/datos/api/v3/doc/itemClassification/n4/49121500"
+       }
+      }
+     ]
+    },
+    "tag": [
+     "compiled"
+    ]
+   },
+   "expect": {
+    "stage": "contract_awarded",
+    "response_deadline": "2026-04-13T10:15:00",
+    "external_ref": "ocds-03ad3f-484237-1"
+   },
+   "why": "second real 'Adjudicada' record"
+  }
+ ]
+}

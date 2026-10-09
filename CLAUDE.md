@@ -4066,6 +4066,97 @@ the honest gaps. Lives in its own `<script>` block between `BRIEFING:START` /
   admins after a fresh MFA check. The technical-info boundary must come from what
   each pack contains, not from instructing a model to withhold.
 
+## SECOP II "403 Forbidden" on the tender link (2026-10-09)
+
+Reported by the user: "Read Tender Briefing -> Open on SECOP II" shows Forbidden.
+Not a bad link: the stored URL is the portal's own `urlproceso`. Checked live, EVERY
+path of `community.secop.gov.co` (even `/`) answers `403` from an Azure Application
+Gateway from this India-based connection, with or without a browser User-Agent;
+`colombiacompra.gov.co` and `datos.gov.co` answer 200. It looks like a region block
+on foreign visitors but that is an inference — it was NOT confirmed from Colombia.
+
+- Fix is a fallback, not a link change: for sources named "SECOP II..." the tender
+  briefing and the Path-to-Contract panel show a note ("If the portal says
+  Forbidden") and a link to the tender's own open-data record,
+  `https://www.datos.gov.co/resource/p6dx-8zbt.json?id_del_proceso=<external_ref>`
+  (verified: HTTP 200, exactly one record, same process). It is raw JSON, not a page.
+- `PATCH /opportunities/{id}` (the detail the UI reads) now returns `external_ref`.
+- Same class of problem may exist on other portals that geo-filter (not checked).
+- Tests: `test_portal_access_help.py` (API returns the id; helper appears only for
+  SECOP II and escapes the id).
+
+## SECOP II: awarded tenders were shown as open (2026-10-09)
+
+Second report on the same tender (CN235-300 propeller, ARC803): after "Read Tender
+Briefing -> Open on SECOP II" the portal does not show it. Cause on OUR side too: the
+record is already AWARDED (`adjudicado = Si`, winner "UT PROPELLER ARC", award date
+2026-08-27) while `fase` still says "Presentación de oferta", and `_stage_for` read the
+phase first -> stored as `rfp_issued`, no deadline. ~72,000 rows of the whole dataset are
+in that state. (Whether the portal page also hides awarded notices from visitors could not
+be checked: the host returns 403 from here, see the section above.)
+
+- `colombia_normalize._stage_for(phase, status, awarded)`: awarded -> `contract_awarded`
+  (cancelled/void still wins and is dropped). Closing date now read from
+  `fecha_de_recepcion_de` (an earlier comment claiming no closing date exists was wrong);
+  the upsert now updates `response_deadline` on conflict.
+- `app/colombia_refresh.py`: re-reads stored procedures by id and fixes only stage and
+  deadline. `POST /ingestion/colombia/refresh-status?dry_run=true|false`, plus a weekly job
+  (Sun 06:15 UTC). Never deletes; cancelled/void rows are only counted.
+- First real run (backup taken; id/name/link/buyer/code fingerprint of all 716 rows
+  unchanged afterwards; programmes/opportunities/tenants counts unchanged): 204 of 716
+  moved `rfp_issued -> contract_awarded`, 408 got a deadline. 3 stored procedures are
+  now listed as CANCELLED by the source but remain stored as live (no "called off" stage
+  exists) — left for a human decision.
+- Awards (winner/value in contract_awards) are NOT back-filled by the refresh; they are
+  written when normal ingestion re-reads a row.
+
+## Automatic data checks: data health, source reconciliation, golden payloads (2026-10-09, migration 055)
+
+Why: ~700 tests passed while real data-MEANING bugs sat in the product (SECOP II tenders
+already awarded shown as open; Paraguay "Adjudicada" never recognised; closing dates not
+read). Tests prove the code does what its author expected, not that stored data still means
+what the source says. Three automatic layers now check that, with no human step:
+
+1. `app/data_health.py` + `data_health_results`: per-source invariants — `awarded_but_open`
+   (error), `impossible_deadline`, `malformed_link` (error), `open_without_deadline` /
+   `open_without_action` (warn at 30% / 20% of open tenders), `freshness` (warn >3d, error
+   >10d since last successful ingestion), `row_count` (error on a >=20% drop),
+   `reconciliation_freshness`. Runs after EVERY scheduled ingestion for that source (hook in
+   `ingestion_common.run_scheduled_source`, never allowed to fail the ingestion), daily 07:30
+   UTC for all, and `POST /admin/data-health/run`. A NEW error sends an alert (ALERT_EMAIL;
+   logged only while it is unset). `GET /admin/data-health` and a "Data Health" panel on the
+   Taxonomy Admin page; `/admin/backup/status` carries the overall status. Results purged at
+   180 days.
+2. `app/source_reconcile.py`: re-reads stored tenders from the source itself and corrects ONLY
+   `stage` and `response_deadline` (never name/buyer/code/link/contacts, never deletes;
+   cancelled/void are only counted). Adapters: SECOP II (Socrata by id) and DNCP Paraguay
+   (OCDS record API, with retries — that portal drops connections and truncates JSON).
+   Weekly Sun 06:15 UTC + `POST /admin/source-reconcile/run?source=&dry_run=&sample=`. Sources
+   without an adapter (SAM.gov, TED, CanadaBuys, UK, AusTender, CPPP, South Africa, ProZorro)
+   are reported `not_reconcilable`, never silently skipped. A run that cannot complete is
+   recorded in data health as a warning. `colombia_refresh.refresh_colombia_status` now just
+   delegates to it.
+3. `api/tests/golden/source_payloads.json` + `test_golden_sources.py`: REAL captured source
+   payloads with what the source says the answer is (awarded-but-phase-says-offers, a
+   genuinely-open control, cancelled, two Paraguay "Adjudicada"). Add a case whenever a
+   data-meaning bug is found.
+
+Paraguay fix: `_stage_for` matched only masculine "ADJUDICADO"; DNCP writes "Adjudicada", so
+45 of 108 stored tenders (all with awards and contracts) sat as `requirement_defined`. Now
+"ADJUDICAD"/"FIRMAD" or OCDS `tender.status == complete` -> `contract_awarded`; a published
+award alone is deliberately NOT used (multi-lot tenders can be partly awarded). The closing
+date (`tenderPeriod.endDate`) is now read and stored.
+
+Findings from the first scan that are NOT bugs but matter: of 3,203 tenant opportunities only
+~616 (19%) are on live, un-awarded, in-date tenders (the dashboard already separates them into
+Historical); TED/CanadaBuys/SAM.gov have 900-1,350 tenders with no closing date each, so the
+dashboard cannot tell if those have closed; AusTender (award notices) has no link/contact on
+any row.
+
+Not covered / honest limits: these checks find INCONSISTENCY and drift against the source;
+they cannot tell whether a source is itself wrong or whether the UI renders correctly (no
+real browser here). A source with no adapter is only checked against our own invariants.
+
 ## Known limitations worth remembering while working here
 
 - The scheduler (APScheduler) only runs while the API process is up — no

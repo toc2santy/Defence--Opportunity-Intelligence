@@ -301,11 +301,11 @@ async def run_paraguay_ingestion(
                 text("""
                     insert into programmes
                         (name, country, organization_id, stage, source_id, external_ref, naics_code,
-                         set_aside_code, set_aside_description, ui_link,
+                         set_aside_code, set_aside_description, ui_link, response_deadline,
                          contact_name, contact_email, contact_phone, last_updated)
                     values
                         (:name, :country, :organization_id, :stage, :source_id, :external_ref, :classification_code,
-                         :set_aside_code, :set_aside_description, :ui_link,
+                         :set_aside_code, :set_aside_description, :ui_link, :response_deadline,
                          :contact_name, :contact_email, :contact_phone, now())
                     on conflict (source_id, external_ref) where external_ref is not null do update
                         set name = excluded.name,
@@ -315,6 +315,7 @@ async def run_paraguay_ingestion(
                             set_aside_code = excluded.set_aside_code,
                             set_aside_description = excluded.set_aside_description,
                             ui_link = excluded.ui_link,
+                            response_deadline = coalesce(excluded.response_deadline, programmes.response_deadline),
                             contact_name = coalesce(excluded.contact_name, programmes.contact_name),
                             contact_email = coalesce(excluded.contact_email, programmes.contact_email),
                             contact_phone = coalesce(excluded.contact_phone, programmes.contact_phone),
@@ -329,6 +330,7 @@ async def run_paraguay_ingestion(
                     "set_aside_code": record.get("set_aside_code"),
                     "set_aside_description": record.get("set_aside_description"),
                     "ui_link": record.get("ui_link"),
+                    "response_deadline": record.get("response_deadline"),
                     "contact_name": record.get("contact_name"),
                     "contact_email": record.get("contact_email"),
                     "contact_phone": record.get("contact_phone"),

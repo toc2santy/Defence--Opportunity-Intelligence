@@ -118,6 +118,7 @@ class NormalizedProgramme(TypedDict):
     country: str
     organization_name: Optional[str]
     stage: Optional[str]
+    response_deadline: Optional[str]
     classification_code: Optional[str]
     classification_scheme: Optional[str]
     winner_name: Optional[str]
@@ -157,17 +158,32 @@ def parse_unspsc(classification_id: Optional[str]) -> Optional[str]:
     return match.group(1) if match else None
 
 
-def _stage_for(status_details: Optional[str]) -> Optional[str]:
+def _stage_for(status_details: Optional[str], tender_status: Optional[str] = None) -> Optional[str]:
     folded = _fold(status_details)
     if any(s in folded for s in _NON_INGESTABLE_STATUS_PHRASES):
         return None
-    if "ADJUDICADO" in folded or "FIRMADO" in folded:
+    # "ADJUDICAD" (not "ADJUDICADO"): DNCP writes the status in the feminine,
+    # "Adjudicada" (the process is a licitación/llamado), so the masculine-only
+    # test never matched and 45 of 108 stored tenders — all with published awards
+    # and signed contracts — were shown as open (stage requirement_defined).
+    # Found 2026-10 by a data-health scan. An OCDS tender.status of "complete"
+    # also means it is decided. A published award alone is NOT used: a multi-lot
+    # tender can have some lots awarded while others are still open, so awards
+    # are cross-checked by the data-health scan instead of driving the stage.
+    if "ADJUDICAD" in folded or "FIRMAD" in folded or _fold(tender_status) == "COMPLETE":
         return "contract_awarded"
     if "CONVOCATORIA" in folded or "ABIERTA" in folded:
         return "rfp_issued"
     # Honest floor for a recognised-but-uncategorised status, same
     # fallback Colombia and CanadaBuys both use for the same reason.
     return "requirement_defined"
+
+
+def response_deadline_from_tender(tender: dict) -> Optional[str]:
+    """The tender's own closing date (OCDS tender.tenderPeriod.endDate), or None when not published."""
+    end = ((tender or {}).get("tenderPeriod") or {}).get("endDate")
+    end = str(end or "").strip()
+    return end[:19] if end else None
 
 
 def extract_classification_from_detail(detail_payload: dict) -> Optional[str]:
@@ -308,7 +324,7 @@ def normalize_record(compiled_release: dict) -> Optional[NormalizedProgramme]:
     if is_non_materiel_category(category_details):
         return None
 
-    stage = _stage_for(tender.get("statusDetails"))
+    stage = _stage_for(tender.get("statusDetails"), tender.get("status"))
     if stage is None:
         return None
 
@@ -342,6 +358,7 @@ def normalize_record(compiled_release: dict) -> Optional[NormalizedProgramme]:
         "country": "Paraguay",
         "organization_name": buyer_name,
         "stage": stage,
+        "response_deadline": response_deadline_from_tender(tender),
         "classification_code": code,
         "classification_scheme": "UNSPSC" if code else None,
         "winner_name": winner_name,

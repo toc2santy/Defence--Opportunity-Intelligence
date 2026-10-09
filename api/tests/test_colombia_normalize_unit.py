@@ -175,9 +175,8 @@ def test_normalize_row_core_fields():
     assert r["classification_scheme"] == "UNSPSC"
     assert r["stage"] == "rfp_issued"
     assert r["ui_link"].startswith("https://community.secop.gov.co/")
-    # The open dataset publishes no closing date for the procedure.
-    # Reusing the publication date would put a deadline on screen the
-    # source never stated.
+    # This base row carries no closing-date column, and the publication
+    # date must never stand in for one (a deadline the source never stated).
     assert r["response_deadline"] is None
 
 
@@ -320,3 +319,27 @@ def test_contact_address_built_from_city_and_department():
 def test_contact_address_falls_back_to_the_country_alone():
     r = normalize_row(_row(**{"ciudad_entidad": "", "departamento_entidad": ""}))
     assert r["contact_address"] == "Colombia"
+
+
+def test_awarded_procedure_is_contract_awarded_even_if_its_phase_still_says_offers():
+    """
+    The user-reported CN235-300 propeller tender: fase 'Presentación de oferta' but
+    adjudicado = 'Si' with a winner. The phase alone mapped it to rfp_issued, i.e.
+    advertised an awarded tender as open.
+    """
+    row = _row(**{COL_PHASE: "Presentación de oferta", COL_STATUS: "Seleccionado", "adjudicado": "Si"})
+    assert normalize_row(row)["stage"] == "contract_awarded"
+    not_awarded = _row(**{COL_PHASE: "Presentación de oferta", COL_STATUS: "Evaluación", "adjudicado": "No"})
+    assert normalize_row(not_awarded)["stage"] == "rfp_issued"
+
+
+def test_cancelled_still_wins_over_awarded():
+    row = _row(**{COL_STATUS: "Cancelado", "adjudicado": "Si"})
+    assert normalize_row(row)["stage"] is None
+
+
+def test_published_closing_date_is_read_from_the_truncated_column():
+    r = normalize_row(_row(**{"fecha_de_recepcion_de": "2026-08-18T00:00:00.000",
+                              "fecha_de_publicacion_del": "2026-07-22T00:00:00.000"}))
+    assert r["response_deadline"] == "2026-08-18T00:00:00"
+    assert r["response_deadline"] != r["posted_date"]

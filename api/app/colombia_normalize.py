@@ -42,6 +42,7 @@ COL_PUBLISHED = "fecha_de_publicacion_del"
 COL_CATEGORY = "codigo_principal_de_categoria"
 COL_CONTRACT_TYPE = "tipo_de_contrato"
 COL_PHASE = "fase"
+COL_DEADLINE = "fecha_de_recepcion_de"   # "fecha de recepción de respuestas" (name is truncated by Socrata)
 COL_STATUS = "estado_del_procedimiento"
 COL_URL = "urlproceso"
 COL_AWARDED = "adjudicado"
@@ -250,10 +251,19 @@ _STATUS_MAP = {
 NON_INGESTABLE_STATUSES = ("CANCELADO", "DESIERTO", "TERMINADO ANORMALMENTE")
 
 
-def _stage_for(phase: Optional[str], status: Optional[str]) -> Optional[str]:
+def _stage_for(phase: Optional[str], status: Optional[str], awarded: bool = False) -> Optional[str]:
     folded_status = _fold(status)
     if any(s in folded_status for s in NON_INGESTABLE_STATUSES):
         return None
+
+    # An awarded procedure is awarded whatever its `fase` still says.
+    # Found live (2026-10, a user-reported tender): CN235-300 propeller,
+    # adjudicado = "Si" with a winner and a 27 Aug award date, yet `fase`
+    # still read "Presentación de oferta" and was mapped to rfp_issued —
+    # an already-closed tender advertised as open. In the whole dataset
+    # ~72,000 rows are in exactly that state.
+    if awarded:
+        return "contract_awarded"
 
     folded_phase = _fold(phase)
     for key, stage in _PHASE_MAP.items():
@@ -300,15 +310,17 @@ def normalize_row(raw: dict) -> NormalizedProgramme:
         "name": name,
         "country": "Colombia",
         "organization_name": str(raw.get(COL_ENTITY) or "").strip() or None,
-        "stage": _stage_for(raw.get(COL_PHASE), raw.get(COL_STATUS)),
+        "stage": _stage_for(raw.get(COL_PHASE), raw.get(COL_STATUS), awarded),
         "classification_code": code,
         "classification_scheme": "UNSPSC" if code else None,
         "posted_date": parse_date(raw.get(COL_PUBLISHED)),
-        # SECOP II's open dataset publishes no closing date for the
-        # procedure — checked across the live columns. Left None
-        # rather than reusing the publication date, which would put a
-        # deadline on screen that the source never stated.
-        "response_deadline": None,
+        # The closing date IS published, in `fecha_de_recepcion_de` (the
+        # name is cut off by Socrata; it is the date responses are
+        # received). An earlier version of this comment said no closing
+        # date existed — wrong, found 2026-10. Read off a real record:
+        # published 2026-07-22, responses received until 2026-08-18.
+        # Never falls back to the publication date.
+        "response_deadline": parse_date(raw.get(COL_DEADLINE)),
         "ui_link": parse_url(raw.get(COL_URL)),
         "winner_name": winner,
         "winner_identifier": _real_value(raw.get(COL_SUPPLIER_NIT)) if winner else None,

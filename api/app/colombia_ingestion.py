@@ -217,6 +217,7 @@ async def run_colombia_ingestion(
                             organization_id = excluded.organization_id,
                             stage = excluded.stage,
                             naics_code = excluded.naics_code,
+                            response_deadline = excluded.response_deadline,
                             contact_address = excluded.contact_address,
                             last_updated = now()
                     returning id

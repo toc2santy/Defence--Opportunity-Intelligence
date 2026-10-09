@@ -2017,6 +2017,11 @@ function renderTaxonomyAdmin(){
     <p class="lede">Add new capability categories and keywords here when a real product doesn't classify against anything that exists yet. Changes here are immediately visible to every tenant's classifier.</p>
   </div>
   <div class="section">
+    <h3 style="margin-bottom:6px;">Data Health</h3>
+    <p class="small" style="color:var(--text-faint);margin-bottom:12px;">Checked automatically after every ingestion, daily, and weekly against each source's own records. Nothing to run by hand.</p>
+    <div id="dataHealthContainer" class="panel"><p class="small">Loading…</p></div>
+  </div>
+  <div class="section">
     <h3 style="margin-bottom:14px;">Ingestion Control</h3>
     <div id="ingestionControlContainer" class="panel"><p class="small">Loading…</p></div>
   </div>
@@ -2122,6 +2127,50 @@ function startElapsedTimer(onTick){
   return {
     stop(){ clearInterval(handle); return format(Date.now() - startedAt); }
   };
+}
+
+async function loadDataHealth(){
+  const container = document.getElementById('dataHealthContainer');
+  if(!container) return;
+  try{
+    const data = await apiFetch('/admin/data-health');
+    if(!data.sources.length){
+      container.innerHTML = '<p class="small">No check has run yet. The first one runs automatically after the next ingestion (or press Check now).</p>' + dataHealthRunButton();
+      wireDataHealthRun(container); return;
+    }
+    const tone = {error:'var(--crit)', warn:'var(--signal)', ok:'var(--low)'};
+    const label = {error:'Needs attention', warn:'Watch', ok:'Healthy'};
+    const rows = data.sources.map(s => {
+      const bad = s.checks.filter(c => c.severity !== 'ok');
+      const detail = bad.length
+        ? bad.map(c => `<div class="small" style="color:${tone[c.severity]};margin-top:3px;">${c.severity === 'error' ? '✖' : '▲'} ${escapeHtml(c.message)}</div>`).join('')
+        : '<div class="small" style="color:var(--text-faint);margin-top:3px;">All checks passed.</div>';
+      return `<tr>
+        <td style="width:34%;word-break:break-word;">${escapeHtml(s.source)}</td>
+        <td style="width:14%;"><span style="color:${tone[s.status]};font-weight:600;">● ${label[s.status]}</span></td>
+        <td>${detail}</td></tr>`;
+    }).join('');
+    container.innerHTML = `
+      <p style="margin-bottom:10px;"><b style="color:${tone[data.overall]};">● ${label[data.overall]}</b>
+        <span class="small" style="color:var(--text-faint);"> — overall</span></p>
+      <table class="datatable"><thead><tr><th>Source</th><th>Status</th><th>What was found</th></tr></thead><tbody>${rows}</tbody></table>
+      ${dataHealthRunButton()}`;
+    wireDataHealthRun(container);
+  }catch(e){
+    container.innerHTML = `<p class="small" style="color:var(--crit);">Could not load data health: ${escapeHtml(e.message || e)}</p>`;
+  }
+}
+function dataHealthRunButton(){
+  return '<p style="margin-top:12px;"><button type="button" class="btn btn-ghost btn-sm" id="dataHealthRunBtn">Check now</button></p>';
+}
+function wireDataHealthRun(container){
+  const btn = container.querySelector('#dataHealthRunBtn');
+  if(!btn) return;
+  btn.addEventListener('click', async () => {
+    btn.disabled = true; btn.textContent = 'Checking…';
+    try{ await apiFetch('/admin/data-health/run', {method:'POST'}); }catch(e){ /* the reload below shows the real state */ }
+    loadDataHealth();
+  });
 }
 
 async function loadIngestionStatus(){
@@ -2511,6 +2560,7 @@ function initTaxonomyAdminHandlers(){
     loadTaxonomyDetail();
   } else {
     loadIngestionStatus();
+    loadDataHealth();
     loadTaxonomyList();
   }
 }
@@ -4173,6 +4223,26 @@ function tenderOpenSummary(opp){
   return `${n} time${n === 1 ? '' : 's'}${last}`;
 }
 
+// Some source portals refuse visitors from other countries. SECOP II (Colombia
+// Compra Eficiente) answers every page of community.secop.gov.co with
+// "403 Forbidden" from outside Colombia, so the link we store (the portal's own
+// urlproceso) is correct but unreachable for many users. The same process is
+// published as open data, which opens from anywhere — offer that as the fallback.
+// (Seen from our side: the whole community.secop.gov.co host returned 403 from
+// an India-based connection; we have not been able to confirm it from Colombia.)
+const SECOP_OPEN_DATA = 'https://www.datos.gov.co/resource/p6dx-8zbt.json?id_del_proceso=';
+function portalAccessHelp(opp){
+  if(!opp || !/^SECOP II/i.test(opp.source_name || '')) return '';
+  const record = opp.external_ref
+    ? `<a href="${SECOP_OPEN_DATA}${encodeURIComponent(opp.external_ref)}" target="_blank" rel="noopener noreferrer">Open the official open-data record for this tender →</a>` : '';
+  return `<div class="panel" style="border-color:var(--signal);margin:12px 0;">
+      <b style="color:var(--signal);">If the portal says "Forbidden"</b>
+      <p class="small" style="margin-top:6px;">Colombia's SECOP II portal appears to refuse visitors from outside Colombia, so the button may show <i>403 Forbidden</i>. The link itself is the portal's own. You can open the tender from a Colombian connection (for example through your Colombian partner or agent), or read the same tender's published record, which opens from anywhere:</p>
+      ${record ? `<p class="small" style="margin-top:6px;">${record}</p>
+      <p class="small" style="color:var(--text-faint);">It is the raw published record (buyer, phase, dates, value), not a formatted page.</p>` : ''}
+    </div>`;
+}
+
 function showTenderBriefing(opp){
   const st = _briefingStatus(opp);
   const row = (label, value) => value
@@ -4221,6 +4291,7 @@ function showTenderBriefing(opp){
         <b style="color:var(--text-dim);">Not published by ${opp.source_name || 'this source'} for this tender.</b> Coverage genuinely differs by source — SAM.gov, UK Find a Tender, ProZorro, Colombia and AusTender publish some contact fields; EU TED does not publish any at this time. This is a stated source gap, not a lookup that failed.
       </p>`}
 
+    ${portalAccessHelp(opp)}
     <p class="small" style="color:var(--text-faint);">
       <b style="color:var(--text);">What isn't here.</b> The scope of work, clauses and terms are not published as structured data by any of our ten sources — they live in the tender document itself, which is what the button below opens. Contract value is the same: these sources don't publish an estimated value for open tenders, so we don't show a figure we don't have.
     </p>`;
@@ -4329,7 +4400,7 @@ async function loadOpportunityDetail(){
         ${isUrgent && !isPast ? `<p class="small" style="color:var(--signal);margin-bottom:12px;"><b>Urgent — ${daysLeft} day${daysLeft===1?'':'s'} left.</b> Prioritise this over opportunities without a near deadline.</p>` : ''}
         ${opp.ui_link
           ? `<button type="button" class="btn btn-primary" id="openBriefingBtn">Read Tender Briefing →</button>
-             <p class="small" style="margin-top:8px;color:var(--text-faint);">A one-screen briefing from our side first — status, why it matched you, what's published — then the link through to ${opp.source_name || 'the source portal'}.</p>`
+             <p class="small" style="margin-top:8px;color:var(--text-faint);">A one-screen briefing from our side first — status, why it matched you, what's published — then the link through to ${opp.source_name || 'the source portal'}.</p>${portalAccessHelp(opp)}`
           : (opp.contact_name || opp.contact_email)
             ? `<p class="small" style="color:var(--text-faint);">No direct link published — use the procurement contact below to ask the buyer directly.</p>`
             : (() => {

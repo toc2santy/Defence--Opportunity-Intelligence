@@ -57,6 +57,9 @@ from app.backup import (
     run_restore_drill, restore_drill_health, check_staleness_and_alert,
 )
 from app.retention import run_retention_purge, retention_health
+from app.colombia_refresh import refresh_colombia_status
+from app.data_health import run_data_health, latest_results as data_health_latest
+from app.source_reconcile import reconcile_all, reconcile_source
 from app.taxonomy_learning import run_taxonomy_learning, learning_health, mapping_table_for_source
 from app.signup_policy import parse_allowlist, is_allowed
 from app.oidc import (
@@ -442,6 +445,26 @@ async def _run_scheduled_sam_gov_contact_refresh():
             print(f"[scheduled SAM.gov contact refresh] failed: {e}")
 
 
+async def _run_scheduled_source_reconciliation():
+    # Weekly: compare every stored tender of each reconcilable source (SECOP II,
+    # Paraguay) with the source's own record and correct stage / closing date.
+    async with SessionLocal() as session:
+        try:
+            result = await reconcile_all(session)
+            print(f"[scheduled source reconciliation] {result}")
+        except Exception as e:
+            print(f"[scheduled source reconciliation] failed: {e}")
+
+
+async def _run_scheduled_data_health():
+    async with SessionLocal() as session:
+        try:
+            result = await run_data_health(session, trigger="scheduler")
+            print(f"[scheduled data health] {result}")
+        except Exception as e:
+            print(f"[scheduled data health] failed: {e}")
+
+
 async def _run_scheduled_taxonomy_learning():
     async with SessionLocal() as session:
         try:
@@ -559,6 +582,28 @@ async def start_scheduler():
         hour=5,
         minute=30,
         id="scheduled_sam_gov_contact_refresh",
+        replace_existing=True,
+    )
+    # Weekly, Sunday 06:15 UTC — after the SAM.gov contact refresh (05:30).
+    # Re-reads stored tenders from the sources that allow a per-record lookup so
+    # one that was later AWARDED stops being shown as open (app/source_reconcile.py).
+    scheduler.add_job(
+        _run_scheduled_source_reconciliation,
+        "cron",
+        day_of_week="sun",
+        hour=6,
+        minute=15,
+        id="scheduled_source_reconciliation",
+        replace_existing=True,
+    )
+    # Daily 07:30 UTC — data-health checks over every source (app/data_health.py).
+    # Also runs after each scheduled ingestion, for that source only.
+    scheduler.add_job(
+        _run_scheduled_data_health,
+        "cron",
+        hour=7,
+        minute=30,
+        id="scheduled_data_health",
         replace_existing=True,
     )
     # Daily 07:00 UTC — after the nightly ingestions have had hours to
@@ -2809,6 +2854,50 @@ async def trigger_sam_gov_contact_refresh(
     return await refresh_sam_gov_contacts(session)
 
 
+@app.post("/ingestion/colombia/refresh-status")
+@limiter.limit(INGESTION_RATE_LIMIT)
+async def trigger_colombia_status_refresh(
+    request: Request,
+    dry_run: bool = False,
+    user: TokenPayload = Depends(require_role("admin")),
+    session: AsyncSession = Depends(get_tenant_session),
+):
+    """Manual run of the weekly SECOP II status refresh. `dry_run=true` reports what would change and writes nothing — see app/colombia_refresh.py."""
+    return await refresh_colombia_status(session, dry_run=dry_run)
+
+
+@app.get("/admin/data-health")
+async def get_data_health(
+    user: TokenPayload = Depends(require_platform_admin),
+    session: AsyncSession = Depends(get_tenant_session),
+):
+    """Latest result of every automatic data-health check, per source — see app/data_health.py."""
+    return await data_health_latest(session)
+
+
+@app.post("/admin/data-health/run")
+async def trigger_data_health(
+    user: TokenPayload = Depends(require_platform_admin),
+    session: AsyncSession = Depends(get_tenant_session),
+):
+    """Run every data-health check now (they also run daily and after each scheduled ingestion)."""
+    return await run_data_health(session, trigger="manual")
+
+
+@app.post("/admin/source-reconcile/run")
+async def trigger_source_reconcile(
+    source: Optional[str] = None,
+    dry_run: bool = False,
+    sample: Optional[int] = None,
+    user: TokenPayload = Depends(require_platform_admin),
+    session: AsyncSession = Depends(get_tenant_session),
+):
+    """Compare stored tenders with the source's own records and correct stage / closing date. `dry_run=true` writes nothing; `sample=N` checks N random rows; omit `source` for every reconcilable source."""
+    if source:
+        return await reconcile_source(session, source, sample=sample, dry_run=dry_run)
+    return await reconcile_all(session, dry_run=dry_run)
+
+
 class UkFtRunIn(BaseModel):
     days_back: int = 7
 
@@ -3252,6 +3341,7 @@ async def get_backup_status(
         "restore_drill": await restore_drill_health(session),
         "retention_purge": await retention_health(session),
         "taxonomy_learning": await learning_health(session),
+        "data_health": (await data_health_latest(session))["overall"],
     }
 
 
@@ -3780,7 +3870,7 @@ async def update_opportunity(
                    -- exists. p.ui_link is the real apply/detail URL every
                    -- normalizer has computed since day one but the schema
                    -- never had a column for (see db/migrations/018).
-                   p.name as programme_name, p.ui_link, p.set_aside_code, p.set_aside_description,
+                   p.name as programme_name, p.ui_link, p.external_ref, p.set_aside_code, p.set_aside_description,
                    -- Procurement contact for THIS specific tender only.
                    -- Read here, on the one opportunity being viewed —
                    -- never listed or searched across programmes. See
@@ -3928,6 +4018,10 @@ async def update_opportunity(
         "contact_address": before.contact_address,
         "programme_name": before.programme_name,
         "ui_link": before.ui_link,
+        # The source's own id for the notice. The frontend uses it to build an
+        # open-data fallback link where the source portal blocks some visitors
+        # (SECOP II / Colombia answers 403 Forbidden outside Colombia).
+        "external_ref": before.external_ref,
         "response_deadline": before.response_deadline,
         "set_aside_code": before.set_aside_code,
         "set_aside_description": before.set_aside_description,
